@@ -1,0 +1,72 @@
+{
+  "generatedAt": "2026-05-06T20:00:00.000Z",
+  "source": "NVD API",
+  "total": 5,
+  "summary": {
+    "alta": 1,
+    "media": 2,
+    "baja": 2
+  },
+  "vulnerabilities": [
+    {
+      "cveId": "CVE-1999-0005",
+      "description": "The debug command in Sendmail is enabled, allowing attackers to execute commands as root.",
+      "cvss": 10,
+      "epss": 0.284,
+      "affectedSoftware": "a b c d e",
+      "assetName": "Servidor Web Principal",
+      "criticality": "alta",
+      "assignedTo": "Pendiente",
+      "irc": 0.1536,
+      "ircLevel": "baja"
+    },
+    {
+      "cveId": "CVE-2024-1234",
+      "description": "SQL injection in authentication module.",
+      "cvss": 8.8,
+      "epss": 0.671,
+      "affectedSoftware": "wordpress",
+      "assetName": "WordPress",
+      "criticality": "alta",
+      "assignedTo": "Juan",
+      "irc": 0.8412,
+      "ircLevel": "alta"
+    },
+    {
+      "cveId": "CVE-2024-5678",
+      "description": "Unauthorized access to sensitive data.",
+      "cvss": 7.5,
+      "epss": 0.493,
+      "affectedSoftware": "apache",
+      "assetName": "Servidor Apache",
+      "criticality": "media",
+      "assignedTo": "Equipo IT",
+      "irc": 0.6392,
+      "ircLevel": "media"
+    },
+    {
+      "cveId": "CVE-2024-9012",
+      "description": "Missing input validation in endpoints.",
+      "cvss": 6.5,
+      "epss": 0.311,
+      "affectedSoftware": "tomcat",
+      "assetName": "Servidor Tomcat",
+      "criticality": "media",
+      "assignedTo": "Pendiente",
+      "irc": 0.4824,
+      "ircLevel": "media"
+    },
+    {
+      "cveId": "CVE-2024-3456",
+      "description": "SMTP protocol without encryption.",
+      "cvss": 4.5,
+      "epss": 0.152,
+      "affectedSoftware": "nginx",
+      "assetName": "Servidor Nginx",
+      "criticality": "alta",
+      "assignedTo": "Equipo IT",
+      "irc": 0.3292,
+      "ircLevel": "baja"
+    }
+  ]
+}

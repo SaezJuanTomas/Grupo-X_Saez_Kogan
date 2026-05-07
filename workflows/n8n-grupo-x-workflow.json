@@ -1,0 +1,105 @@
+{
+  "name": "Grupo X - MVP Vulnerabilidades NVD",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "7f6b8f3e-1c8c-4ef4-9e52-1ad3f2df1001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=5",
+        "responseFormat": "json",
+        "options": {}
+      },
+      "id": "2d3d71df-86e7-48f1-a1d9-7d7dca7d2a10",
+      "name": "HTTP Request - NVD",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = items[0].json ?? {};\nconst vulnerabilities = response.vulnerabilities ?? [];\n\nfunction getCvss(cve) {\n  const metrics = cve?.metrics ?? {};\n  const v31 = metrics.cvssMetricV31?.[0]?.cvssData?.baseScore;\n  const v30 = metrics.cvssMetricV30?.[0]?.cvssData?.baseScore;\n  const v2 = metrics.cvssMetricV2?.[0]?.baseScore;\n  return Number(v31 ?? v30 ?? v2 ?? 0);\n}\n\nfunction getDescription(cve) {\n  const descriptions = cve?.descriptions ?? [];\n  const english = descriptions.find((entry) => entry.lang === 'en');\n  return english?.value ?? descriptions[0]?.value ?? 'Sin descripción';\n}\n\nfunction getAffectedSoftware(vuln) {\n  const nodes = vuln?.configurations?.[0]?.nodes ?? [];\n  for (const node of nodes) {\n    const matches = node.cpeMatch ?? [];\n    if (matches.length > 0) {\n      const raw = matches[0].criteria || matches[0].cpe23Uri || 'unknown';\n      const parts = String(raw).split(':');\n      return parts.slice(0, 5).join(':');\n    }\n  }\n  return 'unknown';\n}\n\nconst normalized = vulnerabilities.map((vuln) => {\n  const cve = vuln.cve ?? {};\n  const cveId = cve.id ?? 'unknown';\n  const description = getDescription(cve);\n  const cvss = getCvss(cve);\n  const affectedSoftware = getAffectedSoftware(vuln);\n  const epss = Number((0.05 + Math.random() * 0.9).toFixed(3));\n\n  return {\n    json: {\n      cveId,\n      description,\n      cvss,\n      epss,\n      affectedSoftware\n    }\n  };\n});\n\nreturn normalized;"
+      },
+      "id": "7b6af7f4-3b3f-4c78-9c51-7bf0f7eb6e47",
+      "name": "Normalize CVEs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [760, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const criticalityByAsset = {\n  nginx: { assetName: 'Servidor Nginx', criticality: 'alta', weight: 1.0 },\n  wordpress: { assetName: 'WordPress', criticality: 'alta', weight: 1.0 },\n  apache: { assetName: 'Servidor Apache', criticality: 'media', weight: 0.5 },\n  tomcat: { assetName: 'Servidor Tomcat', criticality: 'media', weight: 0.5 }\n};\n\nfunction detectAsset(text) {\n  const content = String(text).toLowerCase();\n  for (const [keyword, value] of Object.entries(criticalityByAsset)) {\n    if (content.includes(keyword)) {\n      return value;\n    }\n  }\n  return { assetName: 'Pendiente de identificar', criticality: 'baja', weight: 0.2 };\n}\n\nfunction getRiskLabel(irc) {\n  if (irc >= 0.75) return 'alta';\n  if (irc >= 0.45) return 'media';\n  return 'baja';\n}\n\nconst enriched = items.map((item) => {\n  const current = item.json;\n  const detected = detectAsset(`${current.cveId} ${current.description} ${current.affectedSoftware}`);\n  const cvssNormalized = Math.max(0, Math.min(10, Number(current.cvss ?? 0))) / 10;\n  const epssNormalized = Math.max(0, Math.min(1, Number(current.epss ?? 0)));\n  const irc = Number(((cvssNormalized * 0.4) + (epssNormalized * 0.4) + (detected.weight * 0.2)).toFixed(4));\n\n  return {\n    json: {\n      ...current,\n      assetName: detected.assetName,\n      criticality: detected.criticality,\n      assignedTo: 'Pendiente',\n      irc,\n      ircLevel: getRiskLabel(irc)\n    }\n  };\n});\n\nreturn enriched;"
+      },
+      "id": "a1d0eac0-5f85-44e8-a5ab-9f68f517f5e4",
+      "name": "Enrich and Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const vulnerabilities = items.map((item) => item.json);\n\nconst counts = vulnerabilities.reduce((acc, vuln) => {\n  acc.total += 1;\n  acc[vuln.ircLevel] = (acc[vuln.ircLevel] ?? 0) + 1;\n  return acc;\n}, { total: 0, alta: 0, media: 0, baja: 0 });\n\nconst payload = {\n  generatedAt: new Date().toISOString(),\n  source: 'NVD API',\n  total: counts.total,\n  summary: {\n    alta: counts.alta,\n    media: counts.media,\n    baja: counts.baja\n  },\n  vulnerabilities\n};\n\nreturn [\n  {\n    json: payload\n  }\n];"
+      },
+      "id": "f5c42a44-b23f-4f70-9a90-95afef3f6794",
+      "name": "Build Export JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1280, 300]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request - NVD",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request - NVD": {
+      "main": [
+        [
+          {
+            "node": "Normalize CVEs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize CVEs": {
+      "main": [
+        [
+          {
+            "node": "Enrich and Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enrich and Score": {
+      "main": [
+        [
+          {
+            "node": "Build Export JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}

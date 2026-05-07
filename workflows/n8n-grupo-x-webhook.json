@@ -1,0 +1,63 @@
+{
+  "name": "Grupo X - Webhook NVD -> Export JSON",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "grupo-x-vulns",
+        "responseMode": "onReceived",
+        "responseData": "{"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = items[0].json ?? {};\nconst vulnerabilities = response.vulnerabilities ?? [];\nfunction getCvss(cve) {\n  const metrics = cve?.metrics ?? {};\n  const v31 = metrics.cvssMetricV31?.[0]?.cvssData?.baseScore;\n  const v30 = metrics.cvssMetricV30?.[0]?.cvssData?.baseScore;\n  const v2 = metrics.cvssMetricV2?.[0]?.baseScore;\n  return Number(v31 ?? v30 ?? v2 ?? 0);\n}\nfunction getDescription(cve) {\n  const descriptions = cve?.descriptions ?? [];\n  const english = descriptions.find((entry) => entry.lang === 'en');\n  return english?.value ?? descriptions[0]?.value ?? 'Sin descripción';\n}\nfunction getAffectedSoftware(vuln) {\n  const nodes = vuln?.configurations?.[0]?.nodes ?? [];\n  for (const node of nodes) {\n    const matches = node.cpeMatch ?? [];\n    if (matches.length > 0) {\n      const raw = matches[0].criteria || matches[0].cpe23Uri || 'unknown';\n      const parts = String(raw).split(':');\n      return parts.slice(0, 5).join(':');\n    }\n  }\n  return 'unknown';\n}\nconst normalized = vulnerabilities.map((vuln) => {\n  const cve = vuln.cve ?? {};\n  const cveId = cve.id ?? 'unknown';\n  const description = getDescription(cve);\n  const cvss = getCvss(cve);\n  const affectedSoftware = getAffectedSoftware(vuln);\n  const epss = Number((0.05 + Math.random() * 0.9).toFixed(3));\n  return { json: { cveId, description, cvss, epss, affectedSoftware } };\n});\nreturn normalized;"
+      },
+      "name": "Normalize CVEs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const criticalityByAsset = { nginx: { assetName: 'Servidor Nginx', criticality: 'alta', weight: 1.0 }, wordpress: { assetName: 'WordPress', criticality: 'alta', weight: 1.0 }, apache: { assetName: 'Servidor Apache', criticality: 'media', weight: 0.5 }, tomcat: { assetName: 'Servidor Tomcat', criticality: 'media', weight: 0.5 } };\nfunction detectAsset(text) { const content = String(text).toLowerCase(); for (const [keyword, value] of Object.entries(criticalityByAsset)) { if (content.includes(keyword)) { return value; } } return { assetName: 'Pendiente de identificar', criticality: 'baja', weight: 0.2 }; }\nfunction getRiskLabel(irc) { if (irc >= 0.75) return 'alta'; if (irc >= 0.45) return 'media'; return 'baja'; }\nconst enriched = items.map((item) => { const current = item.json; const detected = detectAsset(`${current.cveId} ${current.description} ${current.affectedSoftware}`); const cvssNormalized = Math.max(0, Math.min(10, Number(current.cvss ?? 0))) / 10; const epssNormalized = Math.max(0, Math.min(1, Number(current.epss ?? 0))); const irc = Number(((cvssNormalized * 0.4) + (epssNormalized * 0.4) + (detected.weight * 0.2)).toFixed(4)); return { json: { ...current, assetName: detected.assetName, criticality: detected.criticality, assignedTo: 'Pendiente', irc, ircLevel: getRiskLabel(irc) } }; });\nreturn enriched;"
+      },
+      "name": "Enrich and Score",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const vulnerabilities = items.map((item) => item.json); const counts = vulnerabilities.reduce((acc, vuln) => { acc.total += 1; acc[vuln.ircLevel] = (acc[vuln.ircLevel] ?? 0) + 1; return acc; }, { total: 0, alta: 0, media: 0, baja: 0 }); const payload = { generatedAt: new Date().toISOString(), source: 'NVD API', total: counts.total, summary: { alta: counts.alta, media: counts.media, baja: counts.baja }, vulnerabilities }; return [ { json: payload } ];"
+      },
+      "name": "Build Export JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "responseData": "={{ $json }}",
+        "responseFormat": "json"
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1140, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{"node":"Normalize CVEs","type":"main","index":0}]] },
+    "Normalize CVEs": { "main": [[{"node":"Enrich and Score","type":"main","index":0}]] },
+    "Enrich and Score": { "main": [[{"node":"Build Export JSON","type":"main","index":0}]] },
+    "Build Export JSON": { "main": [[{"node":"Respond to Webhook","type":"main","index":0}]] }
+  },
+  "active": false,
+  "settings": {},
+  "versionId": "1"
+}
