@@ -1,4 +1,5 @@
 import React from 'react'
+import { useAuth } from '../context/AuthContext'
 
 interface MenuLateralProps {
   onClose: () => void
@@ -6,11 +7,15 @@ interface MenuLateralProps {
 }
 
 const MenuLateral: React.FC<MenuLateralProps> = ({ onClose, onNavigate }) => {
+  const { role } = useAuth()
+
   const opciones = [
     { id: 1, etiqueta: 'Inicio', seccion: 'inicio' },
     { id: 2, etiqueta: 'Vulnerabilidades', seccion: 'vulnerabilidades' },
-    { id: 3, etiqueta: 'Equipo', seccion: 'equipo' },
-    { id: 4, etiqueta: 'Contacto', seccion: 'contacto' },
+    { id: 3, etiqueta: 'Estadísticas', seccion: 'estadisticas' },
+    ...(role === 'admin'
+      ? [{ id: 4, etiqueta: 'Gestión de Usuarios', seccion: 'usuarios' }]
+      : [])
   ]
 
   const handleClick = (seccion: string) => {

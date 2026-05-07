@@ -4,16 +4,12 @@ import { Vulnerabilidad } from '../models/tipos'
 interface DetalleVulnerabilidadProps {
   vulnerabilidad: Vulnerabilidad
   onVolver: () => void
-  onActualizarAsignado: (id: number, nuevoAsignado: string) => void
 }
 
 const DetalleVulnerabilidad: React.FC<DetalleVulnerabilidadProps> = ({
   vulnerabilidad,
-  onVolver,
-  onActualizarAsignado
+  onVolver
 }) => {
-  const opciones = ['Pendiente', 'Juan', 'Equipo IT']
-
   return (
     <div className="container">
       <button className="button button-link" onClick={onVolver}>
@@ -35,22 +31,22 @@ const DetalleVulnerabilidad: React.FC<DetalleVulnerabilidadProps> = ({
           </div>
 
           <div className="field">
-            <span className="section-label">Activo Afectado</span>
-            <p className="field-label">{vulnerabilidad.activoAfectado}</p>
+            <span className="section-label">Descripción</span>
+            <p className="field-label">{vulnerabilidad.description || 'Sin descripción'}</p>
           </div>
 
           <div className="field">
-            <span className="section-label">Descripción</span>
-            <p className="field-label">{vulnerabilidad.descripcion || 'Sin descripción'}</p>
+            <span className="section-label">Severidad</span>
+            <span className={`badge badge-${vulnerabilidad.severity.toLowerCase()}`}>
+              {vulnerabilidad.severity}
+            </span>
           </div>
 
           <div className="field">
             <span className="section-label">Estado</span>
-            <p className="field-label">
-              <span className={`badge ${vulnerabilidad.estado === 'activo' ? 'badge-danger' : vulnerabilidad.estado === 'resuelto' ? 'badge-success' : 'badge-warning'}`}>
-                {vulnerabilidad.estado}
-              </span>
-            </p>
+            <span className={`badge ${vulnerabilidad.status === 'En revisión' ? 'badge-primary' : vulnerabilidad.status === 'Resuelto' ? 'badge-success' : 'badge-warning'}`}>
+              {vulnerabilidad.status}
+            </span>
           </div>
         </div>
 
@@ -58,17 +54,7 @@ const DetalleVulnerabilidad: React.FC<DetalleVulnerabilidadProps> = ({
           <h3 className="section-title">Asignación</h3>
           <div className="form-group">
             <label htmlFor="asignado" className="section-label">Asignado a</label>
-            <select
-              id="asignado"
-              value={vulnerabilidad.asignadoA}
-              onChange={(e) => onActualizarAsignado(vulnerabilidad.id, e.target.value)}
-            >
-              {opciones.map((opcion) => (
-                <option key={opcion} value={opcion}>
-                  {opcion}
-                </option>
-              ))}
-            </select>
+            <p className="text-muted">Usa la página de detalles para editar las asignaciones</p>
           </div>
         </div>
       </div>

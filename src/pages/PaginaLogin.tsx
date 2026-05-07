@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 
 interface PaginaLoginProps {
   onLoginExitoso: () => void
@@ -8,15 +9,13 @@ const PaginaLogin: React.FC<PaginaLoginProps> = ({ onLoginExitoso }) => {
   const [usuario, setUsuario] = useState('')
   const [contraseña, setContraseña] = useState('')
   const [error, setError] = useState('')
-
-  const USUARIO_VALIDO = 'admin'
-  const CONTRASEÑA_VALIDA = 'contraseña123'
+  const { login } = useAuth()
 
   const manejarLogin = (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (usuario === USUARIO_VALIDO && contraseña === CONTRASEÑA_VALIDA) {
+    if (login(usuario, contraseña)) {
       onLoginExitoso()
     } else {
       setError('Usuario o contraseña incorrectos')

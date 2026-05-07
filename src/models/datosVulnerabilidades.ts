@@ -4,51 +4,56 @@ export const vulnerabilidadesMock: Vulnerabilidad[] = [
   {
     id: 1,
     cve: 'CVE-2024-1234',
-    irc: 'IRC-001',
-    ircScore: 0.9,
-    activoAfectado: 'Servidor Web Principal',
-    asignadoA: 'Juan',
-    descripcion: 'Vulnerabilidad de inyección SQL en módulo de autenticación',
-    estado: 'activo'
+    irc: 9,
+    severity: 'Alta',
+    status: 'En revisión',
+    description: 'Vulnerabilidad de inyección SQL en módulo de autenticación',
+    assigned_to: null,
+    company_id: 1,
+    updated_at: new Date().toISOString()
   },
   {
     id: 2,
     cve: 'CVE-2024-5678',
-    irc: 'IRC-002',
-    ircScore: 0.85,
-    activoAfectado: 'Base de Datos',
-    asignadoA: 'Equipo IT',
-    descripcion: 'Acceso no autorizado a datos sensibles',
-    estado: 'activo'
+    irc: 8,
+    severity: 'Alta',
+    status: 'Pendiente',
+    description: 'Acceso no autorizado a datos sensibles',
+    assigned_to: null,
+    company_id: 1,
+    updated_at: new Date().toISOString()
   },
   {
     id: 3,
     cve: 'CVE-2024-9012',
-    irc: 'IRC-003',
-    ircScore: 0.65,
-    activoAfectado: 'API REST',
-    asignadoA: 'Pendiente',
-    descripcion: 'Falta de validación en endpoints',
-    estado: 'pendiente'
+    irc: 6,
+    severity: 'Media',
+    status: 'Pendiente',
+    description: 'Falta de validación en endpoints',
+    assigned_to: null,
+    company_id: 1,
+    updated_at: new Date().toISOString()
   },
   {
     id: 4,
     cve: 'CVE-2024-3456',
-    irc: 'IRC-004',
-    ircScore: 0.45,
-    activoAfectado: 'Servidor de Correo',
-    asignadoA: 'Juan',
-    descripcion: 'Protocolo SMTP sin encriptación',
-    estado: 'resuelto'
+    irc: 4,
+    severity: 'Baja',
+    status: 'Resuelto',
+    description: 'Protocolo SMTP sin encriptación',
+    assigned_to: null,
+    company_id: 1,
+    updated_at: new Date().toISOString()
   },
   {
     id: 5,
     cve: 'CVE-2024-7890',
-    irc: 'IRC-005',
-    ircScore: 0.72,
-    activoAfectado: 'Aplicación Móvil',
-    asignadoA: 'Equipo IT',
-    descripcion: 'Almacenamiento inseguro de credenciales',
-    estado: 'activo'
+    irc: 7,
+    severity: 'Media',
+    status: 'En revisión',
+    description: 'Almacenamiento inseguro de credenciales',
+    assigned_to: null,
+    company_id: 1,
+    updated_at: new Date().toISOString()
   }
 ]
