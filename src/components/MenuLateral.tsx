@@ -14,7 +14,7 @@ const MenuLateral: React.FC<MenuLateralProps> = ({ onClose, onNavigate }) => {
     { id: 2, etiqueta: 'Vulnerabilidades', seccion: 'vulnerabilidades' },
     { id: 3, etiqueta: 'Estadísticas', seccion: 'estadisticas' },
     ...(role === 'admin'
-      ? [{ id: 4, etiqueta: 'Gestión de Usuarios', seccion: 'usuarios' }]
+      ? [{ id: 4, etiqueta: 'Equipo', seccion: 'equipo' }]
       : [])
   ]
 

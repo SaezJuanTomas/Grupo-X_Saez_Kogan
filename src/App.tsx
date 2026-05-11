@@ -43,6 +43,7 @@ function AppContent() {
           />
         )
       case 'usuarios':
+      case 'equipo':
         return <PaginaGestorUsuarios usuarioActual={user} />
       case 'inicio':
       default:

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { Vulnerabilidad } from '../models/tipos'
 import { vulnerabilidadesMock } from '../models/datosVulnerabilidades'
 
@@ -103,13 +104,16 @@ const PaginaVulnerabilidades: React.FC<PaginaVulnerabilidadesProps> = ({ onSelec
     cargarVulnerabilidades()
   }, [])
 
+  const { user, role } = useAuth()
+
   const vulnerabilidadesFiltradas = useMemo(() => {
     return vulnerabilidades.filter(vuln => {
       const cumpleFiltroSeveridad = filtroSeveridad === 'todas' || vuln.severity === filtroSeveridad
       const cumpleFiltroStatus = filtroStatus === 'todas' || vuln.status === filtroStatus
-      return cumpleFiltroSeveridad && cumpleFiltroStatus
+      const cumpleFiltroRol = role === 'admin' || vuln.assigned_to === user?.id
+      return cumpleFiltroSeveridad && cumpleFiltroStatus && cumpleFiltroRol
     })
-  }, [vulnerabilidades, filtroSeveridad, filtroStatus])
+  }, [vulnerabilidades, filtroSeveridad, filtroStatus, role, user])
 
   const getColorSeveridad = (severity: string): string => {
     switch (severity) {
@@ -236,7 +240,11 @@ const PaginaVulnerabilidades: React.FC<PaginaVulnerabilidadesProps> = ({ onSelec
                 </div>
               ))
             ) : (
-              <div className="sin-resultados">No hay vulnerabilidades que coincidan con los filtros</div>
+              <div className="sin-resultados">
+                {role === 'analyst'
+                  ? 'No hay vulnerabilidades asignadas a tu usuario.'
+                  : 'No hay vulnerabilidades que coincidan con los filtros'}
+              </div>
             )}
           </div>
         </div>
