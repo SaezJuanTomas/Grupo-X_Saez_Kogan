@@ -1,0 +1,308 @@
+{
+  "name": "Grupo X - NVD Vulnerability Automation",
+  "description": "Fetches vulnerabilities from NVD API, enriches data, calculates IRC, and stores in FastAPI backend",
+  "nodes": [
+    {
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [50, 300],
+      "parameters": {}
+    },
+    {
+      "name": "Fetch NVD API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [250, 300],
+      "parameters": {
+        "url": "https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=5",
+        "method": "GET",
+        "responseFormat": "json"
+      }
+    },
+    {
+      "name": "Extract Fields",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300],
+      "parameters": {
+        "jsCode": "const items = $input.all()[0].json.vulnerabilities || [];\n\nconst extracted = items.map(item => {\n  const cve = item.cve.id;\n\n  const cvss =\n    item.cve.metrics?.cvssMetricV31?.[0]?.cvssData?.baseScore ||\n    item.cve.metrics?.cvssMetricV30?.[0]?.cvssData?.baseScore ||\n    5.0;\n\n  const description = (\n    item.cve.descriptions?.[0]?.value || 'No description available'\n  ).substring(0, 500);\n\n  const epss = Math.random() * 0.7 + 0.1;\n\n  return {\n    cve,\n    cvss,\n    description,\n    epss,\n    timestamp: new Date().toISOString()\n  };\n});\n\nreturn extracted.map(item => ({ json: { item } }));"
+      }
+    },
+    {
+      "name": "Filter Completeness",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 300],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.item.description.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Normalize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "parameters": {
+        "jsCode": "const item = $json.item;\n\nreturn [{\n  json: {\n    item: {\n      cve: item.cve,\n      cvss: Math.min(Math.max(parseFloat(item.cvss), 0), 10),\n      epss: Math.min(Math.max(item.epss, 0), 1),\n      description: item.description.trim(),\n      normalized_timestamp: new Date().toISOString()\n    }\n  }\n}];"
+      }
+    },
+    {
+      "name": "Asset Correlation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 300],
+      "parameters": {
+        "jsCode": "const item = $json.item;\n\nconst searchText = item.description.toLowerCase();\n\nlet asset = 'Sistema General';\nlet criticality = 5;\n\nif (searchText.includes('nginx')) {\n  asset = 'Servidor Nginx';\n  criticality = 10;\n}\n\nif (searchText.includes('apache')) {\n  asset = 'Servidor Apache';\n  criticality = 8;\n}\n\nif (searchText.includes('wordpress')) {\n  asset = 'Aplicación WordPress';\n  criticality = 6;\n}\n\nif (searchText.includes('tomcat')) {\n  asset = 'Servidor Tomcat';\n  criticality = 8;\n}\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      correlated_asset: asset,\n      asset_criticality: criticality\n    }\n  }\n}];"
+      }
+    },
+    {
+      "name": "Calculate IRC",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300],
+      "parameters": {
+        "jsCode": "const item = $json.item;\n\nconst irc =\n  (item.cvss * 0.4) +\n  (item.epss * 0.4) +\n  (item.asset_criticality * 0.2);\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      irc: parseFloat(irc.toFixed(2))\n    }\n  }\n}];"
+      }
+    },
+    {
+      "name": "Detect Critical",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 300],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.item.irc }}",
+              "operation": "largerEqual",
+              "value2": 7.5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Critical Path - Mark",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 150],
+      "parameters": {
+        "jsCode": "const item = $json.item;\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      is_critical: true,\n      severity_override: 'Crítica',\n      alert_event: 'CRITICAL_ALERT_GENERATED'\n    }\n  }\n}];"
+      }
+    },
+    {
+      "name": "Normal Path - Mark",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1650, 450],
+      "parameters": {
+        "jsCode": "const item = $json.item;\n\nlet severity = 'Baja';\n\nif (item.irc >= 5.0) {\n  severity = 'Alta';\n} else if (item.irc >= 2.5) {\n  severity = 'Media';\n}\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      is_critical: false,\n      severity_override: severity,\n      alert_event: null\n    }\n  }\n}];"
+      }
+    },
+    {
+      "name": "Merge Branches",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [1850, 300],
+      "parameters": {
+        "mode": "append"
+      }
+    },
+    {
+      "name": "Assign Analyst",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2050, 300],
+      "parameters": {
+        "jsCode": "const item = $json.item;\n\nconst severity = item.severity_override;\n\nlet analyst_id = 2;\n\nif (severity === 'Crítica') {\n  analyst_id = Math.random() > 0.5 ? 2 : 3;\n} else if (severity === 'Alta') {\n  analyst_id = 2;\n} else if (severity === 'Media') {\n  analyst_id = 2;\n} else {\n  analyst_id = 3;\n}\n\nconst companyIds = [1, 2, 3];\nconst randomCompanyId = companyIds[Math.floor(Math.random() * companyIds.length)];\n\nreturn [{\n  json: {\n    payload: {\n      cve: item.cve,\n      description: item.description,\n      irc: item.irc,\n      severity: severity,\n      status: 'Pendiente',\n      company_id: randomCompanyId,\n      assigned_analyst_id: analyst_id,\n      metadata: {\n        correlated_asset: item.correlated_asset,\n        asset_criticality: item.asset_criticality,\n        cvss: item.cvss,\n        epss: item.epss,\n        is_critical: item.is_critical,\n        alert_event: item.alert_event,\n        processed_at: new Date().toISOString()\n      }\n    }\n  }\n}];"
+      }
+    },
+    {
+      "name": "POST to FastAPI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [2250, 300],
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/vulnerabilidades",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.payload }}",
+        "options": {}
+      }
+    },
+    {
+      "name": "Generate Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2450, 300],
+      "parameters": {
+        "jsCode": "const allResults = $input.all();\n\nlet successCount = 0;\nlet errorCount = 0;\n\nallResults.forEach(result => {\n  if (result.json) {\n    successCount++;\n  } else {\n    errorCount++;\n  }\n});\n\nreturn [{\n  json: {\n    execution_summary: {\n      timestamp: new Date().toISOString(),\n      total_processed: successCount + errorCount,\n      success_count: successCount,\n      error_count: errorCount,\n      status: errorCount === 0 ? 'SUCCESS' : 'PARTIAL_SUCCESS'\n    }\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch NVD API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch NVD API": {
+      "main": [
+        [
+          {
+            "node": "Extract Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Fields": {
+      "main": [
+        [
+          {
+            "node": "Filter Completeness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Completeness": {
+      "main": [
+        [
+          {
+            "node": "Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Normalize Data": {
+      "main": [
+        [
+          {
+            "node": "Asset Correlation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asset Correlation": {
+      "main": [
+        [
+          {
+            "node": "Calculate IRC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate IRC": {
+      "main": [
+        [
+          {
+            "node": "Detect Critical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Detect Critical": {
+      "main": [
+        [
+          {
+            "node": "Critical Path - Mark",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normal Path - Mark",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Critical Path - Mark": {
+      "main": [
+        [
+          {
+            "node": "Merge Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normal Path - Mark": {
+      "main": [
+        [
+          {
+            "node": "Merge Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Branches": {
+      "main": [
+        [
+          {
+            "node": "Assign Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assign Analyst": {
+      "main": [
+        [
+          {
+            "node": "POST to FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST to FastAPI": {
+      "main": [
+        [
+          {
+            "node": "Generate Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {}
+}
