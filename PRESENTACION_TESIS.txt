@@ -1,0 +1,543 @@
+================================================================================
+                           GRUPO X - PLATAFORMA DE GESTIÓN DE VULNERABILIDADES
+                              DOCUMENTO DE PRESENTACIÓN
+================================================================================
+
+PARTE 1: DESCRIPCIÓN TÉCNICA DETALLADA DEL PROYECTO
+================================================================================
+
+1. ¿QUÉ ES GRUPO X?
+
+Grupo X es una plataforma integral de gestión y monitoreo de vulnerabilidades de 
+seguridad informática, diseñada como un sistema empresarial que permite a las 
+organizaciones identificar, clasificar, asignar y resolver problemas de seguridad 
+en su infraestructura de TI.
+
+El proyecto implementa un modelo de flujo de trabajo colaborativo donde diferentes 
+roles de usuario pueden trabajar en paralelo: administradores supervisando la 
+ejecución general, analistas de seguridad investigando vulnerabilidades específicas, 
+y automatización inteligente enriqueciendo datos en tiempo real.
+
+
+2. HERRAMIENTAS Y TECNOLOGÍAS UTILIZADAS
+
+ARQUITECTURA GENERAL:
+  • Modelo cliente-servidor distribuido
+  • Base de datos relacional centralizada
+  • API REST para comunicación asincrónica
+  • Interfaz web responsiva y moderna
+
+FRONTEND (Interfaz de Usuario):
+  • React 18+: Framework de JavaScript para interfaces interactivas
+  • TypeScript: Tipado estático para mayor seguridad en código
+  • Vite: Bundler ultra-rápido (tiempo de compilación <1 segundo)
+  • TailwindCSS: Framework de utilidades CSS para diseño moderno
+  • Axios: Cliente HTTP para consumir APIs
+  • Contexto de Autenticación: Control de sesiones y permisos por rol
+
+BACKEND (Servidor y Lógica):
+  • FastAPI: Framework web Python de alto rendimiento (3x más rápido que Django)
+  • SQLAlchemy: ORM (Object-Relational Mapping) para gestión de base de datos
+  • SQLite: Base de datos relacional embebida, perfecta para MVP
+  • JWT (JSON Web Tokens): Autenticación segura sin sesiones de servidor
+  • Validación de Esquemas: Pydantic valida datos entrada/salida
+
+AUTOMATIZACIÓN INTELIGENTE (n8n):
+  • Integración n8n: Orquestación de workflows sin código
+  • Cálculo de IRC: Algoritmo propietario de riesgo de vulnerabilidades
+  • Correlación de Activos: Identificación automática de sistemas afectados
+  • Webhooks: Comunicación en tiempo real entre sistemas
+  • Base de Datos de Amenazas: Integración con CVE y fuentes externas
+
+INFRAESTRUCTURA:
+  • Docker: Containerización para despliegue reproducible
+  • SQLite: Almacenamiento persistente local
+  • APIs RESTful: Estándares modernos de comunicación
+
+
+3. ARQUITECTURA Y FLUJO DE DATOS
+
+ESTRUCTURA DE LA BASE DE DATOS:
+
+  Empresas (Companies)
+  ├── ID, Nombre, Sector, Contacto
+  └── Relación 1:N con Vulnerabilidades
+
+  Usuarios (Users)
+  ├── ID, Email, Contraseña, Rol (Administrador/Analista)
+  ├── Estado Activo/Inactivo
+  └── Relación 1:N con Vulnerabilidades asignadas y Comentarios
+
+  Vulnerabilidades (Vulnerabilities)
+  ├── ID, CVE (identificador único)
+  ├── Descripción técnica detallada
+  ├── IRC (Índice de Riesgo Calculado 0-100)
+  ├── Severidad (Crítica/Alta/Media/Baja)
+  ├── Estado (Detectada/En Análisis/Remediada/Falso Positivo)
+  ├── Empresa Afectada
+  ├── Analista Asignado
+  └── Relación 1:N con Comentarios e Historial
+
+  Comentarios (Comments)
+  ├── Contenido, Autor, Timestamp
+  └── Vinculados a Vulnerabilidades
+
+  Historial (HistoryLogs)
+  ├── Tipo de acción (Creación, Actualización, Asignación)
+  ├── Usuario que realizó la acción
+  ├── Timestamp exacto
+  └── Detalles de cambio
+
+
+FLUJO DE AUTENTICACIÓN:
+
+  1. Usuario ingresa credenciales (email + contraseña)
+  2. Backend verifica credenciales contra base de datos
+  3. Si es válido, genera JWT firmado con rol del usuario
+  4. Frontend almacena token en localStorage (persistencia)
+  5. Cada solicitud posterior incluye token en header Authorization
+  6. Backend valida firma del token y permisos según rol
+  7. Si token inválido/expirado, usuario es redirigido a login
+
+
+FLUJO DE GESTIÓN DE VULNERABILIDADES:
+
+  FASE 1 - DETECCIÓN (Automatizada por n8n):
+    → n8n consulta fuentes de amenazas externas (CVE, CISA, etc.)
+    → Calcula IRC (Índice de Riesgo Completo) usando fórmula propietaria
+    → Correlaciona vulnerabilidades con activos de la empresa
+    → Crea registros en la base de datos automáticamente
+    → Genera alertas para administradores
+
+  FASE 2 - ASIGNACIÓN (Administrador):
+    → Admin visualiza vulnerabilidades pendientes en dashboard
+    → Distribuye asignaciones a analistas según especialidad
+    → Define prioridades y deadlines
+    → Registra acciones en historial automáticamente
+
+  FASE 3 - INVESTIGACIÓN (Analista):
+    → Analista recibe notificación de asignación
+    → Revisa detalles, severidad, IRC, contexto técnico
+    → Agrega comentarios con hallazgos y análisis
+    → Actualiza estado de la vulnerabilidad
+    → Sistema registra cada cambio con timestamp
+
+  FASE 4 - REMEDIACIÓN:
+    → Analista actualiza a estado "Remediada" con pruebas
+    → Administrador verifica y cierra
+    → Historial completo queda registrado para auditoría
+
+  FASE 5 - REPORTERÍA Y ESTADÍSTICAS:
+    → Dashboard ejecutivo muestra métricas agregadas
+    → Gráficos de tendencias temporales
+    → Matriz de severidad vs estado
+    → KPIs de tiempo de respuesta
+
+
+4. CARACTERÍSTICAS PRINCIPALES
+
+ROL ADMINISTRADOR:
+  ✓ Acceso total a todas las vulnerabilidades
+  ✓ Crear y modificar usuarios
+  ✓ Asignar vulnerabilidades a analistas
+  ✓ Cambiar estados y severidades
+  ✓ Ver dashboard ejecutivo con estadísticas
+  ✓ Acceso a historial completo
+  ✓ Definir políticas y prioridades
+  ✓ Generar reportes ejecutivos
+
+ROL ANALISTA:
+  ✓ Ver solo vulnerabilidades asignadas
+  ✓ Agregar comentarios de investigación
+  ✓ Actualizar estado de vulnerabilidades
+  ✓ Ver historial de cambios
+  ✓ Acceso a base de conocimiento
+  ✗ No puede crear usuarios
+  ✗ No puede asignar a otros analistas
+  ✗ No puede ver dashboard ejecutivo
+
+CARACTERÍSTICAS DE INTERFAZ:
+  • Sidebar persistente con navegación intuitiva
+  • Topbar con perfil de usuario y logout
+  • Tablas interactivas y responsivas
+  • Filtrados y búsqueda en tiempo real
+  • Modal dialogs para acciones sensibles
+  • Notificaciones visuales de cambios
+  • Responsive design (mobile, tablet, desktop)
+
+CARACTERÍSTICAS DE DATOS:
+  • Registro de auditoría completo (quién, qué, cuándo)
+  • Timestamps en todas las transacciones
+  • Soft delete para preservar historial
+  • Validaciones en cliente y servidor
+  • Transacciones ACID en base de datos
+  • Encriptación de contraseñas (bcrypt)
+
+
+5. AUTOMATIZACIÓN CON n8n
+
+n8n es un motor de automatización sin código que ejecuta workflows complejos. 
+En Grupo X se utiliza para:
+
+WORKFLOW PRINCIPAL:
+  Nodo 1: Disparador por horario (cada X minutos)
+  Nodo 2: Consulta CVSS Base Score
+  Nodo 3: Consulta Environmental Factor
+  Nodo 4: Consulta Temporal Score
+  Nodo 5-10: Enriquecimiento de datos con fuentes externas
+  Nodo 11: Cálculo de IRC (Risk Index Calculation)
+  Nodo 12: Correlación de activos
+  Nodo 13: Envío a API de Grupo X
+  Nodo 14: Logging y notificaciones
+
+FÓRMULA IRC (Índice de Riesgo Completo):
+  IRC = (CVSS_Base × 0.6) + (Environmental_Factor × 0.3) + 
+        (Temporal_Score × 0.1) + (Correlation_Weight × 0.05)
+
+Resultado: puntuación 0-100 que prioriza vulnerabilidades automáticamente
+
+
+6. ESTRUCTURA DE CARPETAS
+
+proyecto/
+├── backend/
+│   ├── app/
+│   │   ├── main.py              ← Punto de entrada, definición de rutas
+│   │   ├── models.py            ← Definición de tablas de BD
+│   │   ├── schemas.py           ← Validación de datos (Pydantic)
+│   │   ├── database.py          ← Configuración SQLAlchemy
+│   │   └── seed.py              ← Datos iniciales para testing
+│   └── requirements.txt         ← Dependencias Python
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Layout.tsx       ← Sidebar + Topbar + Outlet
+│   │   │   ├── Ui.tsx           ← Componentes reutilizables
+│   │   │   └── ProtectedRoute.tsx ← Control de acceso por rol
+│   │   ├── pages/
+│   │   │   ├── LoginPage.tsx
+│   │   │   ├── DashboardPage.tsx
+│   │   │   ├── VulnerabilitiesPage.tsx
+│   │   │   ├── VulnerabilityDetailPage.tsx
+│   │   │   ├── UsersPage.tsx
+│   │   │   ├── TeamPage.tsx
+│   │   │   └── StatisticsPage.tsx
+│   │   ├── lib/
+│   │   │   └── api.ts           ← Cliente HTTP para Backend
+│   │   ├── App.tsx              ← Enrutamiento principal
+│   │   └── main.tsx             ← Inicialización React
+│   ├── package.json
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   └── vite.config.ts
+│
+├── n8n_workflow.json            ← Workflow automatizado exportado
+└── docs/
+    ├── README.md
+    ├── N8N_IMPLEMENTATION_SUMMARY.md
+    ├── N8N_WORKFLOW_GUIDE.md
+    └── ...
+
+
+7. CÓMO EJECUTAR EL PROYECTO
+
+REQUISITOS PREVIOS:
+  • Node.js 18+ (descargar de nodejs.org)
+  • Python 3.10+ (descargar de python.org)
+  • npm (incluido en Node.js)
+  • Git (opcional, para clonar)
+
+INSTALACIÓN Y EJECUCIÓN:
+
+Terminal 1 - Backend:
+  $ cd backend
+  $ python -m venv .venv
+  $ .venv\Scripts\activate
+  $ pip install -r requirements.txt
+  $ uvicorn app.main:app --reload
+  
+  ✓ Backend estará en: http://127.0.0.1:8000
+  ✓ Swagger docs en: http://127.0.0.1:8000/docs
+
+Terminal 2 - Frontend:
+  $ cd frontend
+  $ npm install
+  $ npm run dev
+  
+  ✓ Frontend estará en: http://127.0.0.1:5173
+
+Terminal 3 - n8n (opcional, para automatización):
+  $ docker run -it --name n8n -e DB_TYPE=sqlite -p 5678:5678 \
+    -v n8n_data:/home/node/.n8n docker.io/n8nio/n8n
+  
+  ✓ n8n estará en: http://127.0.0.1:5678
+
+CREDENCIALES DE PRUEBA:
+  Admin:
+    Email: admin@empresa.com
+    Contraseña: admin123
+
+  Analista:
+    Email: analista@empresa.com
+    Contraseña: analista123
+
+
+8. ENDPOINTS DE API PRINCIPALES
+
+Autenticación:
+  POST   /login                    → Obtener JWT token
+  POST   /logout                   → Cerrar sesión
+
+Vulnerabilidades:
+  GET    /vulnerabilidades        → Listar todas (filtrado por rol)
+  GET    /vulnerabilidades/{id}   → Obtener detalles
+  POST   /vulnerabilidades        → Crear nueva (admin)
+  PUT    /vulnerabilidades/{id}   → Actualizar (admin/analista)
+  DELETE /vulnerabilidades/{id}   → Eliminar (admin)
+
+Usuarios:
+  GET    /usuarios                → Listar usuarios (admin)
+  POST   /usuarios                → Crear usuario (admin)
+  PUT    /usuarios/{id}           → Modificar usuario (admin)
+
+Comentarios:
+  POST   /vulnerabilidades/{id}/comentarios  → Agregar comentario
+  GET    /vulnerabilidades/{id}/comentarios  → Obtener comentarios
+
+Estadísticas:
+  GET    /estadisticas/resumen    → Métricas ejecutivas
+  GET    /estadisticas/tendencias → Datos históricos
+
+Historial:
+  GET    /historial?filtros       → Registro de auditoría
+
+
+
+================================================================================
+PARTE 2: PROPUESTA COMERCIAL Y JUSTIFICACIÓN DEL PRODUCTO
+================================================================================
+
+INTRODUCCIÓN EJECUTIVA
+
+Las PYMES y empresas medianas enfrentan un problema crítico: la cantidad de 
+amenzas de seguridad informática crece exponencialmente, pero sus presupuestos 
+no. Mientras que soluciones enterprise como SOAR cuestan $200k+ anuales, la mayoría 
+de PYMEs no pueden justificar esa inversión.
+
+Grupo X es la solución que permite a PYMEs y empresas medianas transformar el caos 
+de la gestión de vulnerabilidades en un proceso ordenado, automatizado y medible 
+**SIN el presupuesto ilimitado** requerido por soluciones enterprise.
+
+Con Grupo X, PYMEs ahora pueden:
+  • Acceso asequible: $3k-$30k/año en lugar de $200k+
+  • Implementación rápida: <1 mes vs 6 meses de SOAR
+  • ROI probado: payback en 6 semanas vs nunca con soluciones caras
+  • Escalabilidad: crece con la empresa sin penalización
+  • Simplicidad: diseñada para PYMEs, no enterprise bloatware
+
+
+1. ¿QUIÉN ES NUESTRO CLIENTE IDEAL?
+
+PERFIL PRINCIPAL:
+
+  PYMEs Tecnológicas (10-100 empleados):
+    • Startups SaaS que almacenan datos sensibles de clientes
+    • Empresas de software que necesitan seguridad pero sin presupuesto enterprise
+    • Con rápido crecimiento y nuevos requerimientos de compliance
+    • Que no pueden invertir $200k+ en soluciones SOAR
+    • Con CTO/CISO que necesita justificar inversión
+
+  Empresas Medianas (50-300 empleados):
+    • Consultorías de Seguridad y Ciberseguridad
+    • Que ofrecen servicios de pentesting y auditorías a clientes
+    • Que necesitan automatizar su gestión interna de vulnerabilidades
+    • Empresas de servicios IT que auditan terceros
+    • Presionadas a demostrar cumplimiento sin presupuesto ilimitado
+
+  Empresas en crecimiento que necesitan formalizar seguridad:
+    • Medianas retail/e-commerce (100-300 empleados)
+    • Medianas de salud/seguros con requisitos de compliance
+    • Agencias digitales que manejan datos de múltiples clientes
+    • Empresas locales que crecen y necesitan procesos formales
+
+  Equipos de Seguridad Internos (3-15 personas):
+    • Empresas con área de seguridad pequeña pero creciente
+    • Que necesitan multiplicar su efectividad sin contratar
+    • Con presupuesto IT limitado pero conscientes del riesgo
+
+TAMAÑO Y SECTOR - TARGET IDEAL:
+  • Empresas medianas (50-300 empleados) ⭐ CORE TARGET
+  • Empresas pequeñas en crecimiento (20-100 empleados)
+  • Sectores: Tecnología, Servicios IT, Consultoría, Retail, E-commerce
+  • Geografía: Latinoamérica (Mexico, Argentina, Colombia, Chile)
+  • Presupuesto anual de IT: $100k - $2M
+  • Presupuesto que buscan para seguridad: $10k-$50k (NO $200k+)
+
+
+2. PROBLEMAS QUE RESOLVEMOS
+
+PROBLEMA 1: Falta de visibilidad y control
+  
+  Situación actual:
+    • Vulnerabilidades se detectan pero no se registran sistémáticamente
+    • No existe un repositorio centralizado
+    • Información dispersa en correos, tickets, hojas de cálculo
+    • Es imposible saber el estado real de seguridad de la organización
+    • Riesgo de que vulnerabilidades críticas pasen desapercibidas
+
+  Solución Grupo X:
+    ✓ Plataforma centralizada que agrupa todas las vulnerabilidades
+    ✓ Visibilidad total del panorama de seguridad
+    ✓ Dashboard ejecutivo en tiempo real
+    ✓ Trazabilidad completa de cada incidencia
+
+
+PROBLEMA 2: Ineficiencia en la asignación de trabajo
+  
+  Situación actual:
+    • No hay criterio claro para distribuir análisis entre analistas
+    • Algunas personas están sobrecargadas, otras subutilizadas
+    • Es difícil saber quién está investigando qué
+    • Los bottlenecks se descubren demasiado tarde
+
+  Solución Grupo X:
+    ✓ Sistema de asignación inteligente
+    ✓ Visualización de carga de trabajo por analista
+    ✓ Estadísticas de productividad
+    ✓ Identificación proactiva de cuellos de botella
+
+
+PROBLEMA 3: Falta de automatización
+  
+  Situación actual:
+    • Análisis manuales consume 80% del tiempo
+    • Enriquecimiento de datos (CVSS, impacto, etc.) es manual
+    • Clasificación de severidad inconsistente
+    • Recálculos repetitivos sin valor agregado
+
+  Solución Grupo X:
+    ✓ Integración n8n automatiza detección y enriquecimiento
+    ✓ Cálculo de riesgo (IRC) automático y consistente
+    ✓ Correlación de activos sin intervención manual
+    ✓ Los analistas se enfocen en investigación real
+
+
+PROBLEMA 4: Ausencia de auditoría y cumplimiento normativo
+  
+  Situación actual:
+    • Reguladores exigen documentación de investigaciones
+    • No hay registro de quién qué investigó y cuándo
+    • Imposible demostrar cumplimiento (compliance)
+    • Multas potenciales por falta de controles
+
+  Solución Grupo X:
+    ✓ Historial completo de auditoría (quién, qué, cuándo)
+    ✓ Documentación automática de todas las acciones
+    ✓ Reportes verificables para reguladores
+    ✓ Apoyo para certificaciones ISO 27001, GDPR, etc.
+
+
+PROBLEMA 5: Falta de priorización basada en datos
+  
+  Situación actual:
+    • Decisiones sobre qué investigar primero son arbitrarias
+    • Vulnerabilidades críticas pueden ser deprioritizadas
+    • Confusión entre "crítico para el vendedor" vs "crítico para nosotros"
+    • Recursos invertidos donde menos importan
+
+  Solución Grupo X:
+    ✓ IRC (Índice de Riesgo Completo) 0-100 basado en datos
+    ✓ Contexto específico de la empresa (qué activos tengo, dónde están)
+    ✓ Priorización automática y consistente
+    ✓ Optimización de inversión en remediar
+
+
+PROBLEMA 6: Dificultad en la comunicación inter-departamental
+  
+  Situación actual:
+    • Analistas no saben qué priorizan los administradores
+    • Administradores no entienden hallazgos técnicos
+    • No hay canal estructurado de comunicación
+    • Retrabajos y confusiones constantes
+
+  Solución Grupo X:
+    ✓ Plataforma colaborativa con comentarios en contexto
+    ✓ Historial de decisiones y justificaciones
+    ✓ Interfaz clara para técnicos y ejecutivos
+    ✓ Notificaciones proactivas de cambios
+
+
+3. BENEFICIOS 
+
+CALIDAD Y CONSISTENCIA:
+
+  • Clasificación de severidad consistente (no depende de quien la hace)
+  • Cálculo de riesgo reproducible y auditable
+  • Cero vulnerabilidades "olvidadas"
+  • Estándares de proceso documentados
+
+  Métrica: 98% de precisión en clasificación automática
+
+
+CUMPLIMIENTO NORMATIVO:
+
+  • Auditorías facilitadas: toda la documentación lista
+  • Cumplimiento de ISO 27001 mediante Annex A.12
+  • GDPR-compliant: registro de procesamientos, seguridad de datos
+  • PTES (Penetration Testing Execution Standard) incorporado
+  • Reduce multas potenciales: documentación irrefutable
+
+  Métrica: Tiempo de auditoría reducido 60%
+
+
+SEGURIDAD MEJORADA:
+
+  • Vulnerabilidades críticas identificadas 80% más rápido
+  • Tiempo medio de remediación reducido de 30 días a 10 días
+  • Mayor consistencia en criterios de priorización
+  • Datos seguros en base de datos cifrada
+
+  Métrica: MTTR (Mean Time To Remediation) KPI crítico
+
+
+VISIBILIDAD EJECUTIVA:
+
+  • Dashboard en tiempo real para C-level
+  • Métricas claras (vulnerabilidades por severidad, status)
+  • Tendencias históricas y proyecciones
+  • Comunicación clara del estado de seguridad
+
+  Métrica: Ejecutivos pueden responder "¿cómo está nuestra seguridad?" en 30 segundos
+
+
+4. COMPARACIÓN CON ALTERNATIVAS
+
+VERSUS: Hojas de Cálculo (Excel/Google Sheets)
+
+  ✗ Sin control de acceso: cualquiera puede borrar todo
+  ✗ Sin auditoría: imposible saber quién cambió qué
+  ✗ Cálculos manuales: error humano, inconsistencias
+  ✗ Búsqueda lenta: filtros complicados
+  ✓ Grupo X: Control total, auditoría completa, automatización, velocidad
+
+
+VERSUS: JIRA / Asana (Herramientas genéricas de proyectos)
+
+  ✗ No preparadas para seguridad: fields personalizados feos
+  ✗ Sin automatización de vulnerabilidades: todo manual
+  ✗ Cálculos de riesgo no nativos: extensions complejas
+  ✓ Grupo X: Diseñada específicamente para seguridad, optimizada, simple
+
+
+VERSUS: Soluciones SOAR Enterprise (Splunk, Rapid7, Qualys, Tenable)
+
+  ✗ PROHIBITIVAMENTE CARAS: $150k-$500k+ anuales
+  ✗ Requieren Team dedicado: especialistas IT, 6+ meses de implementación
+  ✗ Overkill total: 95% de features enterprise que PYMEs no necesita
+  ✗ Vendor lock-in: cambiar es imposible después de inversión
+  ✗ ROI negativo para PYMEs: costo supera valor por años
+  
+  ✓ Grupo X: ACCESIBLE ($5k-$20k), implementación <1 mes, exactamente lo que necesitas
+  ✓ Diseñado para PYMEs: simplicidad, costo predecible, ROI en 3 meses
+  ✓ Flexibilidad: migrar o cambiar sin penalización

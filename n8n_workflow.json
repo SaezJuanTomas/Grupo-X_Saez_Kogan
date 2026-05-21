@@ -133,7 +133,7 @@
       "position": [2250, 300],
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:8000/vulnerabilidades",
+        "url": "http://host.docker.internal:8000/vulnerabilidades",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.payload }}",

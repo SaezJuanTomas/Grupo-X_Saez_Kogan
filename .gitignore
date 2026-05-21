@@ -12,3 +12,17 @@ frontend/.venv/
 backend/*.db
 frontend/.env.local
 backend/.env
+.env
+.env.*
+*.env
+*.local
+*.secret
+*.key
+*.pem
+*.crt
+*.p12
+*.jks
+.n8n/
+n8n_data/
+backend/.n8n/
+frontend/.n8n/
