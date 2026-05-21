@@ -236,13 +236,3 @@ La idea es que n8n pueda consumir la API con endpoints simples como `POST /vulne
 - La base se crea automáticamente dentro de `backend/app/` como `grupo_x.db`.
 - Si no existe, inicia el backend una vez.
 
-## 15. Nota para la defensa de tesis
-
-Este MVP está pensado para explicarse de forma simple:
-
-- un login mock define el rol
-- el layout cambia según el rol
-- la base SQLite guarda la información
-- el backend expone CRUD simple
-- la interfaz siempre tiene fallback para no romper la demo
-- la arquitectura ya permite evolucionar luego hacia automatización con n8n
