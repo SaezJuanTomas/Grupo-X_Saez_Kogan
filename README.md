@@ -25,7 +25,6 @@ El sistema permite ver, registrar y seguir vulnerabilidades de seguridad de form
 
 - frontend/: interfaz web
 - backend/: API y base de datos
-- docs/: documentación del proyecto
 - n8n_workflow.json: flujo para importar en n8n
 
 ## Objetivo del proyecto
@@ -34,4 +33,5 @@ El objetivo es mostrar una solución simple, clara y realista para administrar v
 
 ## Documentación
 
-La documentación técnica completa está en la carpeta docs/.
+La documentación técnica interna no forma parte de esta versión pública del repositorio.
+
