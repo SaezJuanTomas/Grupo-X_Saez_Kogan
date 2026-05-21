@@ -1,12 +1,13 @@
 import { FormEvent, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { Role, User, Vulnerability } from '../types'
+import type { CompanySummary, Role, User, Vulnerability } from '../types'
 import { Badge, Card, SectionTitle } from '../components/Ui'
 
 type Props = {
   role: Role
   sessionUserId: number
   users: User[]
+  companies: CompanySummary[]
   vulnerabilities: Vulnerability[]
   onCreateVulnerability: (payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>) => void
 }
@@ -18,20 +19,17 @@ function severityTone(severity: string): 'slate' | 'yellow' | 'green' | 'red' | 
   return 'slate'
 }
 
-export function VulnerabilitiesPage({ role, sessionUserId, users, vulnerabilities, onCreateVulnerability }: Props) {
+export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vulnerabilities, onCreateVulnerability }: Props) {
   const visible = role === 'analyst' ? vulnerabilities.filter((item) => item.assigned_analyst_id === sessionUserId) : vulnerabilities
   const [cve, setCve] = useState('CVE-2025-005')
   const [description, setDescription] = useState('')
   const [irc, setIrc] = useState('7.5')
   const [severity, setSeverity] = useState('Alta')
   const [status, setStatus] = useState('Pendiente')
-  const [companyId, setCompanyId] = useState(String(vulnerabilities[0]?.company_id || 1))
+  const [companyId, setCompanyId] = useState(String(companies[0]?.id || vulnerabilities[0]?.company_id || 1))
   const [assignedAnalystId, setAssignedAnalystId] = useState(String(users.find((user) => user.role === 'analyst')?.id || ''))
 
-  const companyOptions = useMemo(() => {
-    const ids = Array.from(new Set(vulnerabilities.map((item) => item.company_id)))
-    return ids.length ? ids : [1, 2, 3]
-  }, [vulnerabilities])
+  const companyOptions = useMemo(() => companies, [companies])
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -74,9 +72,9 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, vulnerabilitie
             </select>
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Descripción" className="min-h-24 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none md:col-span-2 xl:col-span-2" />
             <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
-              {companyOptions.map((option) => (
-                <option key={option} value={option}>
-                  Empresa {option}
+              {companyOptions.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
                 </option>
               ))}
             </select>

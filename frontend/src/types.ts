@@ -15,6 +15,7 @@ export type Company = {
   name: string
   sector: string
   contact: string
+  assigned_analyst_id?: number | null
 }
 
 export type Vulnerability = {
@@ -30,6 +31,8 @@ export type Vulnerability = {
   updated_at: string
   company?: Company
 }
+
+export type CompanySummary = Company
 
 export type Comment = {
   id: number

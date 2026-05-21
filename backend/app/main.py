@@ -6,10 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
 
 from .database import Base, SessionLocal, engine, get_db
-from .models import Comment, HistoryLog, User, Vulnerability
+from .models import Comment, Company, HistoryLog, User, Vulnerability
 from .schemas import (
     CommentCreate,
     CommentRead,
+    CompanyBase,
+    CompanyRead,
+    CompanyUpdate,
     DashboardStats,
     HistoryLogCreate,
     HistoryLogRead,
@@ -71,6 +74,48 @@ def list_vulnerabilities(
     if role == "analyst" and user_id:
         query = query.filter(Vulnerability.assigned_analyst_id == user_id)
     return query.order_by(Vulnerability.updated_at.desc()).all()
+
+
+@app.get("/empresas", response_model=list[CompanyRead])
+def list_companies(db: Session = Depends(get_db)) -> list[Company]:
+    return db.query(Company).order_by(Company.name.asc()).all()
+
+
+@app.get("/empresas/{company_id}", response_model=CompanyRead)
+def get_company(company_id: int, db: Session = Depends(get_db)) -> Company:
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return company
+
+
+@app.post("/empresas", response_model=CompanyRead)
+def create_company(payload: CompanyBase, db: Session = Depends(get_db)) -> Company:
+    assigned_analyst_id = payload.assigned_analyst_id
+    if assigned_analyst_id is None:
+        default_analyst = db.query(User).filter(User.role == "analyst").order_by(User.id.asc()).first()
+        assigned_analyst_id = default_analyst.id if default_analyst else None
+
+    company = Company(name=payload.name, sector=payload.sector, contact=payload.contact, assigned_analyst_id=assigned_analyst_id)
+    db.add(company)
+    db.commit()
+    db.refresh(company)
+    return company
+
+
+@app.patch("/empresas/{company_id}", response_model=CompanyRead)
+def update_company(company_id: int, payload: CompanyUpdate, db: Session = Depends(get_db)) -> Company:
+    company = db.query(Company).filter(Company.id == company_id).first()
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    changes = payload.model_dump(exclude_unset=True)
+    for key, value in changes.items():
+        setattr(company, key, value)
+
+    db.commit()
+    db.refresh(company)
+    return company
 
 
 @app.post("/vulnerabilidades", response_model=VulnerabilityRead)

@@ -11,6 +11,7 @@ type LayoutProps = {
 const adminLinks = [
   { to: '/', label: 'Inicio' },
   { to: '/vulnerabilidades', label: 'Vulnerabilidades' },
+  { to: '/empresas', label: 'Empresas' },
   { to: '/estadisticas', label: 'Estadísticas' },
   { to: '/equipo', label: 'Equipo' },
   { to: '/usuarios', label: 'Gestión de Usuarios' },

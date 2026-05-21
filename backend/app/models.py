@@ -13,6 +13,7 @@ class Company(Base):
     name = Column(String, nullable=False)
     sector = Column(String, nullable=False)
     contact = Column(String, nullable=False)
+    assigned_analyst_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     vulnerabilities = relationship("Vulnerability", back_populates="company")

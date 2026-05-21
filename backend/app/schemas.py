@@ -8,6 +8,7 @@ class CompanyBase(BaseModel):
     name: str
     sector: str
     contact: str
+    assigned_analyst_id: Optional[int] = None
 
 
 class CompanyRead(CompanyBase):
@@ -15,6 +16,13 @@ class CompanyRead(CompanyBase):
 
     class Config:
         from_attributes = True
+
+
+class CompanyUpdate(BaseModel):
+    name: Optional[str] = None
+    sector: Optional[str] = None
+    contact: Optional[str] = None
+    assigned_analyst_id: Optional[int] = None
 
 
 class UserBase(BaseModel):

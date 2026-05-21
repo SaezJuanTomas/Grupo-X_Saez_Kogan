@@ -6,14 +6,17 @@ import { LoginPage } from './pages/LoginPage'
 import { StatisticsPage } from './pages/StatisticsPage'
 import { TeamPage } from './pages/TeamPage'
 import { UsersPage } from './pages/UsersPage'
+import { CompaniesPage } from './pages/CompaniesPage'
+import { CompanyDetailPage } from './pages/CompanyDetailPage'
 import { VulnerabilitiesPage } from './pages/VulnerabilitiesPage'
 import { VulnerabilityDetailPage } from './pages/VulnerabilityDetailPage'
-import { createUser as createUserRequest, createVulnerability as createVulnerabilityRequest, getComments, getHistory, getStats, getUsers, getVulnerabilities, updateUser as updateUserRequest, updateVulnerability as updateVulnerabilityRequest } from './lib/api'
+import { createCompany as createCompanyRequest, createUser as createUserRequest, createVulnerability as createVulnerabilityRequest, getComments, getCompanies, getHistory, getStats, getUsers, getVulnerabilities, updateUser as updateUserRequest, updateVulnerability as updateVulnerabilityRequest } from './lib/api'
 import { mockSessionUsers, mockUsers } from './data/mockData'
-import type { Comment, DashboardStats, HistoryLog, SessionUser, User, Vulnerability } from './types'
+import type { Comment, CompanySummary, DashboardStats, HistoryLog, SessionUser, User, Vulnerability } from './types'
 
 type Store = {
   users: User[]
+  companies: CompanySummary[]
   vulnerabilities: Vulnerability[]
   comments: Comment[]
   history: HistoryLog[]
@@ -22,6 +25,7 @@ type Store = {
 
 const defaultStore: Store = {
   users: mockUsers,
+  companies: [],
   vulnerabilities: [],
   comments: [],
   history: [],
@@ -48,8 +52,9 @@ export function App() {
 
     async function fetchData() {
       setLoading(true)
-      const [users, vulnerabilities, stats] = await Promise.all([
+      const [users, companies, vulnerabilities, stats] = await Promise.all([
         getUsers(),
+        getCompanies(),
         getVulnerabilities(currentSession.role, currentSession.role === 'analyst' ? currentSession.id : undefined),
         getStats(),
       ])
@@ -62,7 +67,7 @@ export function App() {
       }
 
       if (mounted) {
-        setStore({ users, vulnerabilities, comments, history, stats })
+        setStore({ users, companies, vulnerabilities, comments, history, stats })
         setLoading(false)
       }
     }
@@ -104,6 +109,22 @@ export function App() {
     void createUserRequest(payload).then((createdUser) => {
       setStore((current) => ({ ...current, users: [...current.users, createdUser] }))
     })
+  }
+
+  function createCompany(payload: { name: string; sector: string; contact: string }) {
+    void createCompanyRequest(payload).then((createdCompany) => {
+      setStore((current) => ({ ...current, companies: [...current.companies, createdCompany] }))
+    })
+  }
+
+  function updateCompany(id: number, company: CompanySummary) {
+    setStore((current) => ({
+      ...current,
+      companies: current.companies.map((item) => (item.id === id ? company : item)),
+      vulnerabilities: current.vulnerabilities.map((item) =>
+        item.company_id === id ? { ...item, company: company } : item,
+      ),
+    }))
   }
 
   function toggleActive(userId: number) {
@@ -149,8 +170,10 @@ export function App() {
       <Routes>
         <Route path="/" element={<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />} />
         <Route path="/inicio" element={<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />} />
-        <Route path="/vulnerabilidades" element={<VulnerabilitiesPage role={sessionUser.role} sessionUserId={sessionUser.id} users={store.users} vulnerabilities={store.vulnerabilities} onCreateVulnerability={createVulnerability} />} />
+        <Route path="/vulnerabilidades" element={<VulnerabilitiesPage role={sessionUser.role} sessionUserId={sessionUser.id} users={store.users} companies={store.companies} vulnerabilities={store.vulnerabilities} onCreateVulnerability={createVulnerability} />} />
         <Route path="/vulnerabilidades/:id" element={<VulnerabilityDetailPage role={sessionUser.role} sessionUser={currentUser || { id: sessionUser.id, username: sessionUser.username, email: '', role: sessionUser.role, active: true, latest_activity: '' }} users={store.users} vulnerabilities={store.vulnerabilities} comments={store.comments} history={store.history} onRefresh={() => window.location.reload()} onUpdateVulnerability={updateVulnerability} />} />
+        <Route path="/empresas" element={sessionUser.role === 'admin' ? <CompaniesPage companies={store.companies} users={store.users} onCreateCompany={createCompany} /> : <Navigate to="/" replace />} />
+        <Route path="/empresas/:id" element={sessionUser.role === 'admin' ? <CompanyDetailPage companies={store.companies} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateCompany={updateCompany} /> : <Navigate to="/" replace />} />
         <Route path="/estadisticas" element={sessionUser.role === 'admin' ? <StatisticsPage stats={store.stats || emptyStats} /> : <Navigate to="/" replace />} />
         <Route path="/equipo" element={sessionUser.role === 'admin' ? <TeamPage users={store.users} /> : <Navigate to="/" replace />} />
         <Route path="/usuarios" element={sessionUser.role === 'admin' ? <UsersPage users={store.users} onToggleActive={toggleActive} onCreateUser={createUser} /> : <Navigate to="/" replace />} />

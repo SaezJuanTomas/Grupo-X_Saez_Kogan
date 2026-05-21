@@ -10,9 +10,9 @@ def seed_database(db: Session) -> None:
         return
 
     companies = [
-        Company(name="Saez Logistics", sector="Logistica", contact="ciso@saezlogistics.local"),
-        Company(name="Kogan Health", sector="Salud", contact="security@koganhealth.local"),
-        Company(name="Grupo X Retail", sector="Comercio", contact="it@grupoxretail.local"),
+        Company(name="Saez Logistics", sector="Logistica", contact="ciso@saezlogistics.local", assigned_analyst_id=2),
+        Company(name="Kogan Health", sector="Salud", contact="security@koganhealth.local", assigned_analyst_id=3),
+        Company(name="Grupo X Retail", sector="Comercio", contact="it@grupoxretail.local", assigned_analyst_id=2),
     ]
     db.add_all(companies)
     db.flush()

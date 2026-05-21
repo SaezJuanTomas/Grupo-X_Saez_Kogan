@@ -1,5 +1,5 @@
-import type { Comment, DashboardStats, HistoryLog, User, Vulnerability } from '../types'
-import { mockComments, mockHistory, mockStats, mockUsers, mockVulnerabilities } from '../data/mockData'
+import type { Comment, CompanySummary, DashboardStats, HistoryLog, User, Vulnerability } from '../types'
+import { mockComments, mockCompanies, mockHistory, mockStats, mockUsers, mockVulnerabilities } from '../data/mockData'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -15,6 +15,49 @@ async function request<T>(path: string, fallback: T): Promise<T> {
 
 export async function getUsers(): Promise<User[]> {
   return request('/usuarios', mockUsers)
+}
+
+export async function getCompanies(): Promise<CompanySummary[]> {
+  return request('/empresas', mockCompanies)
+}
+
+export async function getCompany(id: number): Promise<CompanySummary | undefined> {
+  const fallback = mockCompanies.find((item) => item.id === id) || mockCompanies[0]
+  return request(`/empresas/${id}`, fallback)
+}
+
+export async function createCompany(payload: Omit<CompanySummary, 'id'>): Promise<CompanySummary> {
+  try {
+    const response = await fetch(`${API_URL}/empresas`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!response.ok) throw new Error('Request failed')
+    return (await response.json()) as CompanySummary
+  } catch {
+    return {
+      id: Date.now(),
+      name: payload.name,
+      sector: payload.sector,
+      contact: payload.contact,
+    }
+  }
+}
+
+export async function updateCompany(id: number, payload: Partial<Omit<CompanySummary, 'id'>>): Promise<CompanySummary> {
+  try {
+    const response = await fetch(`${API_URL}/empresas/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (!response.ok) throw new Error('Request failed')
+    return (await response.json()) as CompanySummary
+  } catch {
+    const fallback = mockCompanies.find((item) => item.id === id) as CompanySummary
+    return { ...fallback, ...payload, id }
+  }
 }
 
 export async function getVulnerabilities(role?: string, userId?: number): Promise<Vulnerability[]> {

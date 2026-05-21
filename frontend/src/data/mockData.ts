@@ -1,4 +1,4 @@
-import type { Comment, DashboardStats, HistoryLog, SessionUser, User, Vulnerability } from '../types'
+import type { Comment, CompanySummary, DashboardStats, HistoryLog, SessionUser, User, Vulnerability } from '../types'
 
 export const mockSessionUsers: Array<SessionUser & { password: string; email: string; active: boolean }> = [
   { id: 1, username: 'admin', password: '123', email: 'admin@grupox.local', role: 'admin', active: true },
@@ -10,6 +10,12 @@ export const mockUsers: User[] = [
   { id: 2, username: 'analyst', email: 'analyst@grupox.local', role: 'analyst', active: true, latest_activity: 'Actualizó estado de CVE-2025-001', assigned_vulnerabilities: 2 },
   { id: 3, username: 'juan', email: 'juan@grupox.local', role: 'analyst', active: true, latest_activity: 'Asignado a nueva vulnerabilidad', assigned_vulnerabilities: 1 },
   { id: 4, username: 'maria', email: 'maria@grupox.local', role: 'analyst', active: false, latest_activity: 'Cuenta inactiva temporalmente', assigned_vulnerabilities: 0 },
+]
+
+export const mockCompanies: CompanySummary[] = [
+  { id: 1, name: 'Saez Logistics', sector: 'Logistica', contact: 'ciso@saezlogistics.local', assigned_analyst_id: 2 },
+  { id: 2, name: 'Kogan Health', sector: 'Salud', contact: 'security@koganhealth.local', assigned_analyst_id: 3 },
+  { id: 3, name: 'Grupo X Retail', sector: 'Comercio', contact: 'it@grupoxretail.local', assigned_analyst_id: 2 },
 ]
 
 export const mockVulnerabilities: Vulnerability[] = [
