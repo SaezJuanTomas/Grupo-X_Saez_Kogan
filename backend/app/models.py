@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy.types import JSON
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -13,6 +14,7 @@ class Company(Base):
     name = Column(String, nullable=False)
     sector = Column(String, nullable=False)
     contact = Column(String, nullable=False)
+    technologies = Column(JSON, default=list)
     assigned_analyst_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -43,6 +45,7 @@ class Vulnerability(Base):
     id = Column(Integer, primary_key=True, index=True)
     cve = Column(String, nullable=False)
     description = Column(Text, nullable=False)
+    affected_technology = Column(String, nullable=True)
     irc = Column(Float, nullable=False)
     severity = Column(String, nullable=False)
     status = Column(String, nullable=False)

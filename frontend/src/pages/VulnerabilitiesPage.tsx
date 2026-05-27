@@ -27,9 +27,11 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
   const [severity, setSeverity] = useState('Alta')
   const [status, setStatus] = useState('Pendiente')
   const [companyId, setCompanyId] = useState(String(companies[0]?.id || vulnerabilities[0]?.company_id || 1))
+  const [affectedTechnology, setAffectedTechnology] = useState('')
   const [assignedAnalystId, setAssignedAnalystId] = useState(String(users.find((user) => user.role === 'analyst')?.id || ''))
 
   const companyOptions = useMemo(() => companies, [companies])
+  const selectedCompany = useMemo(() => companies.find((c) => c.id === Number(companyId)), [companies, companyId])
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -37,6 +39,7 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
     onCreateVulnerability({
       cve,
       description: description.trim(),
+      affected_technology: affectedTechnology || null,
       irc: Number(irc),
       severity,
       status,
@@ -44,6 +47,7 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
       assigned_analyst_id: assignedAnalystId ? Number(assignedAnalystId) : null,
     })
     setDescription('')
+    setAffectedTechnology('')
   }
 
   return (
@@ -71,11 +75,17 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
               <option>Resuelto</option>
             </select>
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Descripción" className="min-h-24 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none md:col-span-2 xl:col-span-2" />
-            <select value={companyId} onChange={(event) => setCompanyId(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
+            <select value={companyId} onChange={(event) => { setCompanyId(event.target.value); setAffectedTechnology(''); }} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
               {companyOptions.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
                 </option>
+              ))}
+            </select>
+            <select value={affectedTechnology} onChange={(event) => setAffectedTechnology(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
+              <option value="">—</option>
+              {selectedCompany?.technologies?.map((tech) => (
+                <option key={tech} value={tech}>{tech}</option>
               ))}
             </select>
             <select value={assignedAnalystId} onChange={(event) => setAssignedAnalystId(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
@@ -112,7 +122,7 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
                   <Badge tone={severityTone(item.severity) as 'slate'}>{item.severity}</Badge>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-600 md:grid-cols-4">
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-600 md:grid-cols-5">
                   <div>
                     <p className="text-xs uppercase tracking-wide text-slate-400">IRC</p>
                     <p className="mt-1 font-semibold text-slate-900">{item.irc.toFixed(1)}</p>
@@ -128,6 +138,10 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
                   <div>
                     <p className="text-xs uppercase tracking-wide text-slate-400">Empresa</p>
                     <p className="mt-1 font-semibold text-slate-900">{item.company?.name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-slate-400">Tecnología</p>
+                    <p className="mt-1 font-semibold text-slate-900">{item.affected_technology || '—'}</p>
                   </div>
                 </div>
               </Card>

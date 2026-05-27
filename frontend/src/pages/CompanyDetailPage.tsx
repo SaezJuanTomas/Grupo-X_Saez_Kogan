@@ -23,14 +23,16 @@ export function CompanyDetailPage({ companies, users, vulnerabilities, onUpdateC
   const [name, setName] = useState(company?.name || '')
   const [sector, setSector] = useState(company?.sector || '')
   const [contact, setContact] = useState(company?.contact || '')
+  const [technologiesInput, setTechnologiesInput] = useState(company?.technologies?.join(', ') || '')
   const [assignedAnalystId, setAssignedAnalystId] = useState(String(company?.assigned_analyst_id || ''))
 
   useEffect(() => {
     setName(company?.name || '')
     setSector(company?.sector || '')
     setContact(company?.contact || '')
+    setTechnologiesInput(company?.technologies?.join(', ') || '')
     setAssignedAnalystId(String(company?.assigned_analyst_id || ''))
-  }, [company?.id, company?.name, company?.sector, company?.contact, company?.assigned_analyst_id])
+  }, [company?.id, company?.name, company?.sector, company?.contact, company?.technologies, company?.assigned_analyst_id])
 
   if (!company) {
     return (
@@ -44,10 +46,16 @@ export function CompanyDetailPage({ companies, users, vulnerabilities, onUpdateC
     event.preventDefault()
     if (!name.trim() || !sector.trim() || !contact.trim()) return
 
+    const technologies = technologiesInput
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+
     void updateCompany(company.id, {
       name: name.trim(),
       sector: sector.trim(),
       contact: contact.trim(),
+      technologies,
       assigned_analyst_id: assignedAnalystId ? Number(assignedAnalystId) : null,
     }).then((updatedCompany) => {
       onUpdateCompany(company.id, updatedCompany)
@@ -75,6 +83,7 @@ export function CompanyDetailPage({ companies, users, vulnerabilities, onUpdateC
             <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nombre" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
             <input value={sector} onChange={(event) => setSector(event.target.value)} placeholder="Sector" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
             <input value={contact} onChange={(event) => setContact(event.target.value)} placeholder="Contacto" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+            <input value={technologiesInput} onChange={(event) => setTechnologiesInput(event.target.value)} placeholder="Tecnologías (separadas por coma)" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
             <select value={assignedAnalystId} onChange={(event) => setAssignedAnalystId(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
               <option value="">Sin asignar</option>
               {analystOptions.map((user) => (
@@ -90,7 +99,17 @@ export function CompanyDetailPage({ companies, users, vulnerabilities, onUpdateC
 
           <div className="mt-5 text-sm text-slate-600">
             <p>Contacto actual: {company.contact}</p>
-            <p>Analista responsable: {assignedAnalyst?.username || 'Sin asignar'}</p>
+            {company.technologies?.length ? (
+              <div className="mt-3">
+                <p className="mb-1.5 font-medium text-slate-700">Tecnologías</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {company.technologies.map((tech) => (
+                    <span key={tech} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{tech}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <p className="mt-3">Analista responsable: {assignedAnalyst?.username || 'Sin asignar'}</p>
           </div>
 
           <div className="mt-5">

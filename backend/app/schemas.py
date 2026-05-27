@@ -8,6 +8,7 @@ class CompanyBase(BaseModel):
     name: str
     sector: str
     contact: str
+    technologies: list[str] = []
     assigned_analyst_id: Optional[int] = None
 
 
@@ -22,6 +23,7 @@ class CompanyUpdate(BaseModel):
     name: Optional[str] = None
     sector: Optional[str] = None
     contact: Optional[str] = None
+    technologies: Optional[list[str]] = None
     assigned_analyst_id: Optional[int] = None
 
 
@@ -56,6 +58,7 @@ class UserRead(UserBase):
 class VulnerabilityBase(BaseModel):
     cve: str
     description: str
+    affected_technology: Optional[str] = None
     irc: float
     severity: str
     status: str
@@ -70,6 +73,7 @@ class VulnerabilityCreate(VulnerabilityBase):
 class VulnerabilityUpdate(BaseModel):
     cve: Optional[str] = None
     description: Optional[str] = None
+    affected_technology: Optional[str] = None
     irc: Optional[float] = None
     severity: Optional[str] = None
     status: Optional[str] = None

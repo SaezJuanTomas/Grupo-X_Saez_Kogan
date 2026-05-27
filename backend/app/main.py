@@ -96,7 +96,7 @@ def create_company(payload: CompanyBase, db: Session = Depends(get_db)) -> Compa
         default_analyst = db.query(User).filter(User.role == "analyst").order_by(User.id.asc()).first()
         assigned_analyst_id = default_analyst.id if default_analyst else None
 
-    company = Company(name=payload.name, sector=payload.sector, contact=payload.contact, assigned_analyst_id=assigned_analyst_id)
+    company = Company(name=payload.name, sector=payload.sector, contact=payload.contact, technologies=payload.technologies, assigned_analyst_id=assigned_analyst_id)
     db.add(company)
     db.commit()
     db.refresh(company)

@@ -15,6 +15,7 @@ export type Company = {
   name: string
   sector: string
   contact: string
+  technologies: string[]
   assigned_analyst_id?: number | null
 }
 
@@ -22,6 +23,7 @@ export type Vulnerability = {
   id: number
   cve: string
   description: string
+  affected_technology: string | null
   irc: number
   severity: string
   status: string

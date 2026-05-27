@@ -41,6 +41,7 @@ export async function createCompany(payload: Omit<CompanySummary, 'id'>): Promis
       name: payload.name,
       sector: payload.sector,
       contact: payload.contact,
+      technologies: payload.technologies ?? [],
     }
   }
 }
@@ -120,6 +121,7 @@ export async function createVulnerability(payload: Omit<Vulnerability, 'id' | 'c
     return {
       id: Date.now(),
       ...payload,
+      affected_technology: payload.affected_technology ?? null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }

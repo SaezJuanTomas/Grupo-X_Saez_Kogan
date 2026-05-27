@@ -14,16 +14,23 @@ export function CompaniesPage({ companies, users, onCreateCompany }: Props) {
   const [name, setName] = useState('')
   const [sector, setSector] = useState('')
   const [contact, setContact] = useState('')
+  const [technologiesInput, setTechnologiesInput] = useState('')
 
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim() || !sector.trim() || !contact.trim()) return
 
-    void createCompany({ name: name.trim(), sector: sector.trim(), contact: contact.trim() }).then((company) => {
+    const technologies = technologiesInput
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+
+    void createCompany({ name: name.trim(), sector: sector.trim(), contact: contact.trim(), technologies }).then((company) => {
       onCreateCompany(company)
       setName('')
       setSector('')
       setContact('')
+      setTechnologiesInput('')
     })
   }
 
@@ -37,6 +44,7 @@ export function CompaniesPage({ companies, users, onCreateCompany }: Props) {
           <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Nombre" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
           <input value={sector} onChange={(event) => setSector(event.target.value)} placeholder="Sector" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
           <input value={contact} onChange={(event) => setContact(event.target.value)} placeholder="Contacto" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+          <input value={technologiesInput} onChange={(event) => setTechnologiesInput(event.target.value)} placeholder="Tecnologías (separadas por coma)" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none md:col-span-3" />
           <button type="submit" className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-medium text-white hover:bg-slate-700 md:col-span-3">
             Crear empresa
           </button>
@@ -56,6 +64,13 @@ export function CompaniesPage({ companies, users, onCreateCompany }: Props) {
 
             <div className="mt-4 grid gap-2 text-sm text-slate-600">
               <p>Contacto: {company.contact}</p>
+              {company.technologies?.length ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {company.technologies.map((tech) => (
+                    <span key={tech} className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">{tech}</span>
+                  ))}
+                </div>
+              ) : null}
               <p>
                 Analista responsable:{' '}
                 {users.find((user) => user.id === company.assigned_analyst_id)?.username || 'Sin asignar'}

@@ -10,9 +10,11 @@ def seed_database(db: Session) -> None:
         return
 
     companies = [
-        Company(name="Saez Logistics", sector="Logistica", contact="ciso@saezlogistics.local", assigned_analyst_id=2),
-        Company(name="Kogan Health", sector="Salud", contact="security@koganhealth.local", assigned_analyst_id=3),
-        Company(name="Grupo X Retail", sector="Comercio", contact="it@grupoxretail.local", assigned_analyst_id=2),
+        Company(name="Saez Logistics", sector="Logistica", contact="ciso@saezlogistics.local", technologies=["Linux", "Apache", "Python", "PostgreSQL", "Docker"], assigned_analyst_id=2),
+        Company(name="Kogan Health", sector="Salud", contact="security@koganhealth.local", technologies=["Windows Server", "SQL Server", "C#", ".NET", "Active Directory"], assigned_analyst_id=3),
+        Company(name="Grupo X Retail", sector="Comercio", contact="it@grupoxretail.local", technologies=["Nginx", "Linux", "MySQL", "PHP", "WordPress", "Node.js", "Tomcat"], assigned_analyst_id=2),
+        Company(name="TechFlow SA", sector="Fintech", contact="security@techflow.local", technologies=["Kubernetes", "Go", "Redis", "PostgreSQL", "React"], assigned_analyst_id=3),
+        Company(name="CloudPress", sector="Medios", contact="it@cloudpress.local", technologies=["Nginx", "WordPress", "MySQL", "Apache", "PHP", "Redis"], assigned_analyst_id=2),
     ]
     db.add_all(companies)
     db.flush()
@@ -30,6 +32,7 @@ def seed_database(db: Session) -> None:
         Vulnerability(
             cve="CVE-2025-001",
             description="Exposición de panel interno por configuración débil de autenticación.",
+            affected_technology="Apache",
             irc=8.9,
             severity="Crítica",
             status="Pendiente",
@@ -41,6 +44,7 @@ def seed_database(db: Session) -> None:
         Vulnerability(
             cve="CVE-2025-002",
             description="Cabeceras de seguridad ausentes en una aplicación interna de reportes.",
+            affected_technology=".NET",
             irc=6.7,
             severity="Alta",
             status="En progreso",
@@ -52,6 +56,7 @@ def seed_database(db: Session) -> None:
         Vulnerability(
             cve="CVE-2025-003",
             description="Dependencia desactualizada con riesgo de ejecución remota limitada.",
+            affected_technology="Node.js",
             irc=5.2,
             severity="Media",
             status="Resuelto",
@@ -63,6 +68,7 @@ def seed_database(db: Session) -> None:
         Vulnerability(
             cve="CVE-2025-004",
             description="Permisos excesivos en almacenamiento compartido.",
+            affected_technology="Docker",
             irc=4.1,
             severity="Baja",
             status="Pendiente",
@@ -70,6 +76,30 @@ def seed_database(db: Session) -> None:
             assigned_analyst_id=users[2].id,
             created_at=datetime.utcnow() - timedelta(days=2),
             updated_at=datetime.utcnow() - timedelta(hours=8),
+        ),
+        Vulnerability(
+            cve="CVE-2025-005",
+            description="Vulnerabilidad en la configuración de Kubernetes que permite escalada de privilegios en contenedores.",
+            affected_technology="Kubernetes",
+            irc=7.8,
+            severity="Alta",
+            status="Pendiente",
+            company_id=companies[3].id,
+            assigned_analyst_id=users[2].id,
+            created_at=datetime.utcnow() - timedelta(hours=6),
+            updated_at=datetime.utcnow() - timedelta(hours=6),
+        ),
+        Vulnerability(
+            cve="CVE-2025-006",
+            description="Plugin de WordPress con inyección SQL que permite extraer información de la base de datos MySQL.",
+            affected_technology="WordPress",
+            irc=6.5,
+            severity="Alta",
+            status="Pendiente",
+            company_id=companies[4].id,
+            assigned_analyst_id=users[1].id,
+            created_at=datetime.utcnow() - timedelta(hours=3),
+            updated_at=datetime.utcnow() - timedelta(hours=3),
         ),
     ]
     db.add_all(vulnerabilities)
