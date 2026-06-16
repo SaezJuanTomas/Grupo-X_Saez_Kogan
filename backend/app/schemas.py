@@ -128,6 +128,24 @@ class HistoryLogRead(HistoryLogBase):
         from_attributes = True
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: int
+    username: str
+    role: str
+
+
+class TrendPoint(BaseModel):
+    date: str
+    count: int
+
+
 class DashboardStats(BaseModel):
     critical: int
     pending: int
@@ -137,3 +155,8 @@ class DashboardStats(BaseModel):
     status_counts: dict[str, int]
     analyst_activity: list[dict[str, object]]
     irc_distribution: dict[str, int]
+
+
+class TrendsResponse(BaseModel):
+    created: list[TrendPoint]
+    resolved: list[TrendPoint]

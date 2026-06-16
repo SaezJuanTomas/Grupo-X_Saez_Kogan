@@ -2,12 +2,22 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from .auth import hash_password
 from .models import Comment, Company, HistoryLog, User, Vulnerability
 
 
 def seed_database(db: Session) -> None:
     if db.query(User).first():
         return
+
+    users = [
+        User(username="admin", email="admin@grupox.local", role="admin", password=hash_password("123"), active=True, latest_activity="Revisó estadísticas"),
+        User(username="analyst", email="analyst@grupox.local", role="analyst", password=hash_password("123"), active=True, latest_activity="Actualizó estado de CVE-2025-001"),
+        User(username="juan", email="juan@grupox.local", role="analyst", password=hash_password("123"), active=True, latest_activity="Asignado a nueva vulnerabilidad"),
+        User(username="maria", email="maria@grupox.local", role="analyst", password=hash_password("123"), active=False, latest_activity="Cuenta inactiva temporalmente"),
+    ]
+    db.add_all(users)
+    db.flush()
 
     companies = [
         Company(name="Saez Logistics", sector="Logistica", contact="ciso@saezlogistics.local", technologies=["Linux", "Apache", "Python", "PostgreSQL", "Docker"], assigned_analyst_id=2),
@@ -17,15 +27,6 @@ def seed_database(db: Session) -> None:
         Company(name="CloudPress", sector="Medios", contact="it@cloudpress.local", technologies=["Nginx", "WordPress", "MySQL", "Apache", "PHP", "Redis"], assigned_analyst_id=2),
     ]
     db.add_all(companies)
-    db.flush()
-
-    users = [
-        User(username="admin", email="admin@grupox.local", role="admin", password="123", active=True, latest_activity="Revisó estadísticas"),
-        User(username="analyst", email="analyst@grupox.local", role="analyst", password="123", active=True, latest_activity="Actualizó estado de CVE-2025-001"),
-        User(username="juan", email="juan@grupox.local", role="analyst", password="123", active=True, latest_activity="Asignado a nueva vulnerabilidad"),
-        User(username="maria", email="maria@grupox.local", role="analyst", password="123", active=False, latest_activity="Cuenta inactiva temporalmente"),
-    ]
-    db.add_all(users)
     db.flush()
 
     vulnerabilities = [
@@ -110,6 +111,12 @@ def seed_database(db: Session) -> None:
         Comment(vulnerability_id=vulnerabilities[0].id, author_id=users[1].id, text="Estoy validando el acceso al panel y preparando evidencia."),
         Comment(vulnerability_id=vulnerabilities[1].id, author_id=users[2].id, text="Identifiqué cabeceras faltantes. Propongo corregir con la próxima entrega."),
         Comment(vulnerability_id=vulnerabilities[2].id, author_id=users[1].id, text="Cierre confirmado luego de aplicar actualización y pruebas."),
+        Comment(vulnerability_id=vulnerabilities[3].id, author_id=users[0].id, text="Evaluar impacto en almacenamiento compartido. Requiere revisión de permisos."),
+        Comment(vulnerability_id=vulnerabilities[3].id, author_id=users[2].id, text="Ya identifiqué los contenedores con permisos elevados. Procedo a acotar."),
+        Comment(vulnerability_id=vulnerabilities[4].id, author_id=users[0].id, text="Potencial escalada en Kubernetes. Revisar configuración de RBAC."),
+        Comment(vulnerability_id=vulnerabilities[4].id, author_id=users[2].id, text="Confirmado. Varios namespaces con service accounts mal configurados."),
+        Comment(vulnerability_id=vulnerabilities[5].id, author_id=users[0].id, text="WordPress con SQLi crítico. Revisar plugin de formularios."),
+        Comment(vulnerability_id=vulnerabilities[5].id, author_id=users[1].id, text="Ya tengo el PoC. La inyección está en el parámetro 'form_id'."),
     ]
     db.add_all(comments)
 
@@ -120,6 +127,11 @@ def seed_database(db: Session) -> None:
         HistoryLog(vulnerability_id=vulnerabilities[1].id, actor_id=users[2].id, action="Estado cambiado", detail="Estado cambiado a En progreso"),
         HistoryLog(vulnerability_id=vulnerabilities[2].id, actor_id=users[1].id, action="Estado cambiado", detail="Estado cambiado a Resuelto"),
         HistoryLog(vulnerability_id=vulnerabilities[3].id, actor_id=users[0].id, action="Asignado", detail="Asignado a juan"),
+        HistoryLog(vulnerability_id=vulnerabilities[3].id, actor_id=users[2].id, action="Comentario agregado", detail="Revisión de permisos en almacenamiento"),
+        HistoryLog(vulnerability_id=vulnerabilities[4].id, actor_id=users[0].id, action="Asignado", detail="Asignado a juan"),
+        HistoryLog(vulnerability_id=vulnerabilities[4].id, actor_id=users[2].id, action="Comentario agregado", detail="Identificación de service accounts mal configurados"),
+        HistoryLog(vulnerability_id=vulnerabilities[5].id, actor_id=users[0].id, action="Asignado", detail="Asignado a analyst"),
+        HistoryLog(vulnerability_id=vulnerabilities[5].id, actor_id=users[1].id, action="Comentario agregado", detail="PoC de inyección SQL en plugin de formularios"),
     ]
     db.add_all(history_logs)
     db.commit()

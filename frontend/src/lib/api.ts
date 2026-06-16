@@ -1,186 +1,141 @@
+import axios from 'axios'
 import type { Comment, CompanySummary, DashboardStats, HistoryLog, User, Vulnerability } from '../types'
-import { mockComments, mockCompanies, mockHistory, mockStats, mockUsers, mockVulnerabilities } from '../data/mockData'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const http = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  headers: { 'Content-Type': 'application/json' },
+})
 
-async function request<T>(path: string, fallback: T): Promise<T> {
-  try {
-    const response = await fetch(`${API_URL}${path}`)
-    if (!response.ok) throw new Error('Request failed')
-    return (await response.json()) as T
-  } catch {
-    return fallback
+http.interceptors.request.use((config) => {
+  const token = localStorage.getItem('grupo-x-token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
+  return config
+})
+
+http.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('grupo-x-token')
+      localStorage.removeItem('grupo-x-session')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  },
+)
+
+export function setToken(token: string | null) {
+  if (token) {
+    localStorage.setItem('grupo-x-token', token)
+  } else {
+    localStorage.removeItem('grupo-x-token')
+  }
+}
+
+export type LoginPayload = { username: string; password: string }
+export type LoginResult = { access_token: string; token_type: string; user_id: number; username: string; role: string }
+
+export async function login(payload: LoginPayload): Promise<LoginResult> {
+  const { data } = await http.post<LoginResult>('/login', payload)
+  return data
+}
+
+export async function logout(): Promise<void> {
+  await http.post('/logout')
 }
 
 export async function getUsers(): Promise<User[]> {
-  return request('/usuarios', mockUsers)
+  const { data } = await http.get<User[]>('/usuarios')
+  return data
 }
 
 export async function getCompanies(): Promise<CompanySummary[]> {
-  return request('/empresas', mockCompanies)
+  const { data } = await http.get<CompanySummary[]>('/empresas')
+  return data
 }
 
-export async function getCompany(id: number): Promise<CompanySummary | undefined> {
-  const fallback = mockCompanies.find((item) => item.id === id) || mockCompanies[0]
-  return request(`/empresas/${id}`, fallback)
+export async function getCompany(id: number): Promise<CompanySummary> {
+  const { data } = await http.get<CompanySummary>(`/empresas/${id}`)
+  return data
 }
 
-export async function createCompany(payload: Omit<CompanySummary, 'id'>): Promise<CompanySummary> {
-  try {
-    const response = await fetch(`${API_URL}/empresas`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) throw new Error('Request failed')
-    return (await response.json()) as CompanySummary
-  } catch {
-    return {
-      id: Date.now(),
-      name: payload.name,
-      sector: payload.sector,
-      contact: payload.contact,
-      technologies: payload.technologies ?? [],
-    }
-  }
+export async function createCompany(payload: { name: string; sector: string; contact: string; technologies?: string[]; assigned_analyst_id?: number | null }): Promise<CompanySummary> {
+  const { data } = await http.post<CompanySummary>('/empresas', payload)
+  return data
 }
 
 export async function updateCompany(id: number, payload: Partial<Omit<CompanySummary, 'id'>>): Promise<CompanySummary> {
-  try {
-    const response = await fetch(`${API_URL}/empresas/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) throw new Error('Request failed')
-    return (await response.json()) as CompanySummary
-  } catch {
-    const fallback = mockCompanies.find((item) => item.id === id) as CompanySummary
-    return { ...fallback, ...payload, id }
-  }
+  const { data } = await http.patch<CompanySummary>(`/empresas/${id}`, payload)
+  return data
 }
 
 export async function getVulnerabilities(role?: string, userId?: number): Promise<Vulnerability[]> {
-  const params = new URLSearchParams()
-  if (role) params.set('role', role)
-  if (userId) params.set('user_id', String(userId))
-  const suffix = params.toString() ? `?${params.toString()}` : ''
-  return request(`/vulnerabilidades${suffix}`, mockVulnerabilities)
+  const params: Record<string, string> = {}
+  if (role) params.role = role
+  if (userId) params.user_id = String(userId)
+  const { data } = await http.get<Vulnerability[]>('/vulnerabilidades', { params })
+  return data
 }
 
-export async function getVulnerability(id: number): Promise<Vulnerability | undefined> {
-  const fallback = mockVulnerabilities.find((item) => item.id === id) || mockVulnerabilities[0]
-  return request(`/vulnerabilidades/${id}`, fallback)
-}
-
-export async function getComments(vulnerabilityId: number): Promise<Comment[]> {
-  const fallback = mockComments.filter((comment) => comment.vulnerability_id === vulnerabilityId)
-  return request(`/comentarios?vulnerability_id=${vulnerabilityId}`, fallback)
-}
-
-export async function getHistory(vulnerabilityId: number): Promise<HistoryLog[]> {
-  const fallback = mockHistory.filter((item) => item.vulnerability_id === vulnerabilityId)
-  return request(`/historial?vulnerability_id=${vulnerabilityId}`, fallback)
-}
-
-export async function getStats(): Promise<DashboardStats> {
-  return request('/estadisticas', mockStats)
-}
-
-export async function createComment(vulnerabilityId: number, authorId: number, text: string): Promise<Comment> {
-  try {
-    const response = await fetch(`${API_URL}/vulnerabilidades/${vulnerabilityId}/comentarios`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ vulnerability_id: vulnerabilityId, author_id: authorId, text }),
-    })
-    if (!response.ok) throw new Error('Request failed')
-    return (await response.json()) as Comment
-  } catch {
-    return {
-      id: Date.now(),
-      vulnerability_id: vulnerabilityId,
-      author_id: authorId,
-      text,
-      created_at: new Date().toISOString(),
-    }
-  }
+export async function getVulnerability(id: number): Promise<Vulnerability> {
+  const { data } = await http.get<Vulnerability>(`/vulnerabilidades/${id}`)
+  return data
 }
 
 export async function createVulnerability(payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>): Promise<Vulnerability> {
-  try {
-    const response = await fetch(`${API_URL}/vulnerabilidades`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) throw new Error('Request failed')
-    return (await response.json()) as Vulnerability
-  } catch {
-    return {
-      id: Date.now(),
-      ...payload,
-      affected_technology: payload.affected_technology ?? null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-  }
+  const { data } = await http.post<Vulnerability>('/vulnerabilidades', payload)
+  return data
 }
 
 export async function updateVulnerability(id: number, payload: Partial<Vulnerability>): Promise<Vulnerability> {
-  try {
-    const response = await fetch(`${API_URL}/vulnerabilidades/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) throw new Error('Request failed')
-    return (await response.json()) as Vulnerability
-  } catch {
-    return {
-      ...(mockVulnerabilities.find((item) => item.id === id) as Vulnerability),
-      ...payload,
-      id,
-      created_at: mockVulnerabilities.find((item) => item.id === id)?.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }
-  }
+  const { data } = await http.patch<Vulnerability>(`/vulnerabilidades/${id}`, payload)
+  return data
 }
 
-export async function updateUser(id: number, payload: Partial<User>): Promise<User> {
-  try {
-    const response = await fetch(`${API_URL}/usuarios/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) throw new Error('Request failed')
-    return (await response.json()) as User
-  } catch {
-    const fallback = mockUsers.find((item) => item.id === id) as User
-    return { ...fallback, ...payload, id }
-  }
+export async function deleteVulnerability(id: number): Promise<void> {
+  await http.delete(`/vulnerabilidades/${id}`)
+}
+
+export async function getComments(vulnerabilityId: number): Promise<Comment[]> {
+  const { data } = await http.get<Comment[]>('/comentarios', { params: { vulnerability_id: vulnerabilityId } })
+  return data
+}
+
+export async function createComment(vulnerabilityId: number, authorId: number, text: string): Promise<Comment> {
+  const { data } = await http.post<Comment>(`/vulnerabilidades/${vulnerabilityId}/comentarios`, {
+    vulnerability_id: vulnerabilityId,
+    author_id: authorId,
+    text,
+  })
+  return data
+}
+
+export async function getHistory(vulnerabilityId: number): Promise<HistoryLog[]> {
+  const { data } = await http.get<HistoryLog[]>('/historial', { params: { vulnerability_id: vulnerabilityId } })
+  return data
+}
+
+export async function getStats(): Promise<DashboardStats> {
+  const { data } = await http.get<DashboardStats>('/estadisticas')
+  return data
+}
+
+export type TrendPoint = { date: string; count: number }
+export type TrendsData = { created: TrendPoint[]; resolved: TrendPoint[] }
+
+export async function getTrends(days = 7): Promise<TrendsData> {
+  const { data } = await http.get<TrendsData>('/estadisticas/tendencias', { params: { days } })
+  return data
 }
 
 export async function createUser(payload: { username: string; email: string; role: 'admin' | 'analyst'; password: string }): Promise<User> {
-  try {
-    const response = await fetch(`${API_URL}/usuarios`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) throw new Error('Request failed')
-    return (await response.json()) as User
-  } catch {
-    return {
-      id: Date.now(),
-      username: payload.username,
-      email: payload.email,
-      role: payload.role,
-      active: true,
-      latest_activity: 'Usuario creado manualmente',
-      assigned_vulnerabilities: 0,
-    }
-  }
+  const { data } = await http.post<User>('/usuarios', payload)
+  return data
+}
+
+export async function updateUser(id: number, payload: Partial<User>): Promise<User> {
+  const { data } = await http.patch<User>(`/usuarios/${id}`, payload)
+  return data
 }

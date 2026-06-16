@@ -10,6 +10,7 @@ type Props = {
   companies: CompanySummary[]
   vulnerabilities: Vulnerability[]
   onCreateVulnerability: (payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>) => void
+  onDeleteVulnerability?: (id: number) => void
 }
 
 function severityTone(severity: string): 'slate' | 'yellow' | 'green' | 'red' | 'blue' {
@@ -19,8 +20,30 @@ function severityTone(severity: string): 'slate' | 'yellow' | 'green' | 'red' | 
   return 'slate'
 }
 
-export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vulnerabilities, onCreateVulnerability }: Props) {
-  const visible = role === 'analyst' ? vulnerabilities.filter((item) => item.assigned_analyst_id === sessionUserId) : vulnerabilities
+export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vulnerabilities, onCreateVulnerability, onDeleteVulnerability }: Props) {
+  const [search, setSearch] = useState('')
+  const [filterAnalyst, setFilterAnalyst] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
+  const [filterSeverity, setFilterSeverity] = useState('')
+  const [filterCompany, setFilterCompany] = useState('')
+  const [ircMin, setIrcMin] = useState('')
+  const [ircMax, setIrcMax] = useState('')
+
+  const filtered = useMemo(() => {
+    let items = role === 'analyst' ? vulnerabilities.filter((item) => item.assigned_analyst_id === sessionUserId) : vulnerabilities
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      items = items.filter((item) => item.cve.toLowerCase().includes(q) || item.description.toLowerCase().includes(q))
+    }
+    if (filterAnalyst) items = items.filter((item) => item.assigned_analyst_id === Number(filterAnalyst))
+    if (filterStatus) items = items.filter((item) => item.status === filterStatus)
+    if (filterSeverity) items = items.filter((item) => item.severity === filterSeverity)
+    if (filterCompany) items = items.filter((item) => item.company_id === Number(filterCompany))
+    if (ircMin !== '') items = items.filter((item) => item.irc >= Number(ircMin))
+    if (ircMax !== '') items = items.filter((item) => item.irc <= Number(ircMax))
+    return items
+  }, [vulnerabilities, role, sessionUserId, search, filterAnalyst, filterStatus, filterSeverity, filterCompany, ircMin, ircMax])
+
   const [cve, setCve] = useState('CVE-2025-005')
   const [description, setDescription] = useState('')
   const [irc, setIrc] = useState('7.5')
@@ -103,13 +126,46 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
         </Card>
       ) : null}
 
+      {role === 'admin' ? (
+        <Card>
+          <h3 className="mb-3 text-sm font-semibold text-slate-900">Filtros</h3>
+          <div className="flex flex-wrap gap-2">
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar CVE o descripción..." className="min-w-48 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none" />
+            <select value={filterAnalyst} onChange={(e) => setFilterAnalyst(e.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none">
+              <option value="">Todos los analistas</option>
+              {users.filter((u) => u.role === 'analyst').map((u) => <option key={u.id} value={u.id}>{u.username}</option>)}
+            </select>
+            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none">
+              <option value="">Todos los estados</option>
+              <option>Pendiente</option>
+              <option>En progreso</option>
+              <option>Resuelto</option>
+            </select>
+            <select value={filterSeverity} onChange={(e) => setFilterSeverity(e.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none">
+              <option value="">Todas las severidades</option>
+              <option>Crítica</option>
+              <option>Alta</option>
+              <option>Media</option>
+              <option>Baja</option>
+            </select>
+            <select value={filterCompany} onChange={(e) => setFilterCompany(e.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none">
+              <option value="">Todas las empresas</option>
+              {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            <input value={ircMin} onChange={(e) => setIrcMin(e.target.value)} type="number" step="0.1" min="0" max="10" placeholder="IRC min" className="w-20 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none" />
+            <input value={ircMax} onChange={(e) => setIrcMax(e.target.value)} type="number" step="0.1" min="0" max="10" placeholder="IRC max" className="w-20 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none" />
+          </div>
+        </Card>
+      ) : null}
+
       <div className="grid gap-4 xl:grid-cols-2">
-        {visible.map((item) => {
+        {filtered.map((item) => {
           const analyst = users.find((user) => user.id === item.assigned_analyst_id)
           const critical = item.irc >= 8
 
           return (
-            <Link key={item.id} to={`/vulnerabilidades/${item.id}`}>
+            <div key={item.id}>
+              <Link to={`/vulnerabilidades/${item.id}`}>
               <Card className={`h-full transition hover:-translate-y-0.5 hover:bg-slate-50 ${critical ? 'border-amber-200 bg-amber-50/70' : ''}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -119,7 +175,18 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
                     </div>
                     <p className="mt-2 text-sm text-slate-600">{item.description}</p>
                   </div>
-                  <Badge tone={severityTone(item.severity) as 'slate'}>{item.severity}</Badge>
+                  <div className="flex items-center gap-2">
+                    {role === 'admin' && onDeleteVulnerability ? (
+                      <button
+                        type="button"
+                        onClick={(event) => { event.preventDefault(); if (confirm('¿Eliminar esta vulnerabilidad?')) onDeleteVulnerability(item.id) }}
+                        className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50"
+                      >
+                        Eliminar
+                      </button>
+                    ) : null}
+                    <Badge tone={severityTone(item.severity) as 'slate'}>{item.severity}</Badge>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm text-slate-600 md:grid-cols-5">
@@ -146,11 +213,12 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
                 </div>
               </Card>
             </Link>
+            </div>
           )
         })}
       </div>
 
-      {visible.length === 0 ? <Card><p className="text-sm text-slate-500">No hay vulnerabilidades asignadas para mostrar.</p></Card> : null}
+      {filtered.length === 0 ? <Card><p className="text-sm text-slate-500">No hay vulnerabilidades asignadas para mostrar.</p></Card> : null}
     </div>
   )
 }

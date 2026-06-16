@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import type { User } from '../types'
 import { Badge, Card, SectionTitle } from '../components/Ui'
 
@@ -12,17 +13,19 @@ export function TeamPage({ users }: Props) {
 
       <div className="grid gap-4 xl:grid-cols-2">
         {analysts.map((user) => (
-          <Card key={user.id} className={`${user.active ? '' : 'bg-rose-50/70'}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-lg font-semibold text-slate-900">{user.username}</p>
-                <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+          <Link key={user.id} to={`/equipo/${user.id}`}>
+            <Card className={`h-full transition hover:-translate-y-0.5 hover:bg-slate-50 ${user.active ? '' : 'bg-rose-50/70'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold text-slate-900">{user.username}</p>
+                  <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                </div>
+                <Badge tone={user.active ? 'green' : 'red'}>{user.active ? 'Activo' : 'Inactivo'}</Badge>
               </div>
-              <Badge tone={user.active ? 'green' : 'red'}>{user.active ? 'Activo' : 'Inactivo'}</Badge>
-            </div>
-            <p className="mt-4 text-sm text-slate-600">Última actividad: {user.latest_activity}</p>
-            <p className="mt-2 text-sm text-slate-600">Vulnerabilidades asignadas: {user.assigned_vulnerabilities ?? 0}</p>
-          </Card>
+              <p className="mt-4 text-sm text-slate-600">Última actividad: {user.latest_activity}</p>
+              <p className="mt-2 text-sm text-slate-600">Vulnerabilidades asignadas: {user.assigned_vulnerabilities ?? 0}</p>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

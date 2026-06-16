@@ -10,6 +10,33 @@
       "parameters": {}
     },
     {
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [50, 100],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "minutesInterval": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [50, 500],
+      "parameters": {
+        "path": "trigger-nvd-fetch",
+        "method": "POST",
+        "options": {}
+      }
+    },
+    {
       "name": "Fetch NVD API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
@@ -123,7 +150,7 @@
       "typeVersion": 2,
       "position": [2050, 300],
       "parameters": {
-        "jsCode": "const item = $json.item;\nconst description = (item.description || '').toLowerCase();\nconst asset = (item.correlated_asset || '').toLowerCase();\n\nlet companyId = 1;\nlet matchedTechnologies = [];\n\nasync function matchCompany() {\n  try {\n    const response = await $http.get('http://host.docker.internal:8000/empresas');\n    const companies = Array.isArray(response) ? response : (response.data || []);\n\n    const scored = companies.map(c => {\n      const techs = c.technologies || [];\n      let score = 0;\n      for (const t of techs) {\n        const tl = t.toLowerCase();\n        if (description.includes(tl)) score += 2;\n        if (asset.includes(tl)) score += 1;\n      }\n      return { company: c, score };\n    });\n\n    scored.sort((a, b) => b.score - a.score);\n    const best = scored.find(s => s.score > 0);\n\n    if (best) {\n      companyId = best.company.id;\n      matchedTechnologies = best.company.technologies || [];\n    } else if (companies.length > 0) {\n      const ids = companies.map(c => c.id);\n      companyId = ids[Math.floor(Math.random() * ids.length)];\n    }\n  } catch {\n    const ids = [1, 2, 3];\n    companyId = ids[Math.floor(Math.random() * ids.length)];\n  }\n\n  const severity = item.severity_override;\n  let analyst_id = 2;\n  if (severity === 'Crítica') {\n    analyst_id = Math.random() > 0.5 ? 2 : 3;\n  } else if (severity === 'Alta') {\n    analyst_id = 2;\n  } else if (severity === 'Media') {\n    analyst_id = 2;\n  } else {\n    analyst_id = 3;\n  }\n\n  return [{\n    json: {\n      payload: {\n        cve: item.cve,\n        description: item.description,\n        affected_technology: matchedTechnologies.length > 0 ? matchedTechnologies[0] : null,\n        irc: item.irc,\n        severity: severity,\n        status: 'Pendiente',\n        company_id: companyId,\n        assigned_analyst_id: analyst_id,\n        metadata: {\n          correlated_asset: item.correlated_asset,\n          asset_criticality: item.asset_criticality,\n          cvss: item.cvss,\n          epss: item.epss,\n          is_critical: item.is_critical,\n          alert_event: item.alert_event,\n          matched_technologies: matchedTechnologies,\n          processed_at: new Date().toISOString()\n        }\n      }\n    }\n  }];\n}\n\nreturn matchCompany();"
+        "jsCode": "const item = $json.item;\nconst description = (item.description || '').toLowerCase();\nconst asset = (item.correlated_asset || '').toLowerCase();\n\nlet companyId = 1;\nlet matchedTechnologies = [];\n\nasync function matchCompany() {\n  try {\n    const response = await $http.get('http://host.docker.internal:8000/webhook/n8n/empresas', {\n      headers: { 'x-api-key': 'grp-x-n8n-secret-2025' }\n    });\n    const companies = Array.isArray(response) ? response : (response.data || []);\n\n    const scored = companies.map(c => {\n      const techs = c.technologies || [];\n      let score = 0;\n      for (const t of techs) {\n        const tl = t.toLowerCase();\n        if (description.includes(tl)) score += 2;\n        if (asset.includes(tl)) score += 1;\n      }\n      return { company: c, score };\n    });\n\n    scored.sort((a, b) => b.score - a.score);\n    const best = scored.find(s => s.score > 0);\n\n    if (best) {\n      companyId = best.company.id;\n      matchedTechnologies = best.company.technologies || [];\n    } else if (companies.length > 0) {\n      const ids = companies.map(c => c.id);\n      companyId = ids[Math.floor(Math.random() * ids.length)];\n    }\n  } catch {\n    const ids = [1, 2, 3];\n    companyId = ids[Math.floor(Math.random() * ids.length)];\n  }\n\n  const severity = item.severity_override;\n  let analyst_id = 2;\n  if (severity === 'Crítica') {\n    analyst_id = Math.random() > 0.5 ? 2 : 3;\n  } else if (severity === 'Alta') {\n    analyst_id = 2;\n  } else if (severity === 'Media') {\n    analyst_id = 2;\n  } else {\n    analyst_id = 3;\n  }\n\n  return [{\n    json: {\n      payload: {\n        cve: item.cve,\n        description: item.description,\n        affected_technology: matchedTechnologies.length > 0 ? matchedTechnologies[0] : null,\n        irc: item.irc,\n        severity: severity,\n        status: 'Pendiente',\n        company_id: companyId,\n        assigned_analyst_id: analyst_id,\n        metadata: {\n          correlated_asset: item.correlated_asset,\n          asset_criticality: item.asset_criticality,\n          cvss: item.cvss,\n          epss: item.epss,\n          is_critical: item.is_critical,\n          alert_event: item.alert_event,\n          matched_technologies: matchedTechnologies,\n          processed_at: new Date().toISOString()\n        }\n      }\n    }\n  }];\n}\n\nreturn matchCompany();"
       }
     },
     {
@@ -133,11 +160,20 @@
       "position": [2250, 300],
       "parameters": {
         "method": "POST",
-        "url": "http://host.docker.internal:8000/vulnerabilidades",
+        "url": "http://host.docker.internal:8000/webhook/n8n/vulnerabilidades",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.payload }}",
-        "options": {}
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "grp-x-n8n-secret-2025"
+            }
+          ]
+        }
       }
     },
     {
@@ -152,6 +188,28 @@
   ],
   "connections": {
     "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch NVD API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch NVD API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
       "main": [
         [
           {
@@ -303,6 +361,6 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {}
 }

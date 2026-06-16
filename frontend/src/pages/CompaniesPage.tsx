@@ -2,12 +2,11 @@ import { Link } from 'react-router-dom'
 import { FormEvent, useState } from 'react'
 import type { CompanySummary, User } from '../types'
 import { Card, SectionTitle } from '../components/Ui'
-import { createCompany } from '../lib/api'
 
 type Props = {
   companies: CompanySummary[]
   users: User[]
-  onCreateCompany: (company: CompanySummary) => void
+  onCreateCompany: (payload: { name: string; sector: string; contact: string; technologies?: string[] }) => void
 }
 
 export function CompaniesPage({ companies, users, onCreateCompany }: Props) {
@@ -25,13 +24,11 @@ export function CompaniesPage({ companies, users, onCreateCompany }: Props) {
       .map((item) => item.trim())
       .filter(Boolean)
 
-    void createCompany({ name: name.trim(), sector: sector.trim(), contact: contact.trim(), technologies }).then((company) => {
-      onCreateCompany(company)
-      setName('')
-      setSector('')
-      setContact('')
-      setTechnologiesInput('')
-    })
+    onCreateCompany({ name: name.trim(), sector: sector.trim(), contact: contact.trim(), technologies })
+    setName('')
+    setSector('')
+    setContact('')
+    setTechnologiesInput('')
   }
 
   return (
