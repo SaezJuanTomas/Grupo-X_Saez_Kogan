@@ -34,10 +34,29 @@ def db_session():
 
 @pytest.fixture(scope="function")
 def client(db_session):
+    from app.core.rate_limit import limiter
+    limiter.reset()
     def override_get_db():
         yield db_session
-
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def admin_token(client):
+    resp = client.post("/auth/login", json={"username": "admin", "password": "Admin123!"})
+    assert resp.status_code == 200
+    return resp.json()["access_token"]
+
+
+@pytest.fixture(scope="function")
+def analyst_token(client):
+    resp = client.post("/auth/login", json={"username": "analyst", "password": "Analyst123!"})
+    assert resp.status_code == 200
+    return resp.json()["access_token"]
+
+
+def auth_header(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}

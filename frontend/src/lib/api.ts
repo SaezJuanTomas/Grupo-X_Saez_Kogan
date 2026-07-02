@@ -6,6 +6,9 @@ const http = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+let isRefreshing = false
+let pendingRequests: Array<(token: string) => void> = []
+
 http.interceptors.request.use((config) => {
   const token = localStorage.getItem('grupo-x-token')
   if (token) {
@@ -16,11 +19,49 @@ http.interceptors.request.use((config) => {
 
 http.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('grupo-x-token')
-      localStorage.removeItem('grupo-x-session')
-      window.location.href = '/login'
+  async (error) => {
+    const originalRequest = error.config
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      const refreshToken = localStorage.getItem('grupo-x-refresh-token')
+      if (!refreshToken) {
+        localStorage.removeItem('grupo-x-token')
+        localStorage.removeItem('grupo-x-refresh-token')
+        localStorage.removeItem('grupo-x-session')
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+
+      if (isRefreshing) {
+        return new Promise((resolve) => {
+          pendingRequests.push((token: string) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`
+            resolve(http(originalRequest))
+          })
+        })
+      }
+
+      originalRequest._retry = true
+      isRefreshing = true
+
+      try {
+        const { data } = await axios.post(`${http.defaults.baseURL}/auth/refresh`, {
+          refresh_token: refreshToken,
+        })
+        localStorage.setItem('grupo-x-token', data.access_token)
+        localStorage.setItem('grupo-x-refresh-token', data.refresh_token)
+        originalRequest.headers.Authorization = `Bearer ${data.access_token}`
+        pendingRequests.forEach((cb) => cb(data.access_token))
+        pendingRequests = []
+        return http(originalRequest)
+      } catch {
+        localStorage.removeItem('grupo-x-token')
+        localStorage.removeItem('grupo-x-refresh-token')
+        localStorage.removeItem('grupo-x-session')
+        window.location.href = '/login'
+        return Promise.reject(error)
+      } finally {
+        isRefreshing = false
+      }
     }
     return Promise.reject(error)
   },
@@ -35,15 +76,19 @@ export function setToken(token: string | null) {
 }
 
 export type LoginPayload = { username: string; password: string }
-export type LoginResult = { access_token: string; token_type: string; user_id: number; username: string; role: string }
+export type LoginResult = { access_token: string; refresh_token: string; token_type: string; user_id: number; username: string; role: string }
 
 export async function login(payload: LoginPayload): Promise<LoginResult> {
-  const { data } = await http.post<LoginResult>('/login', payload)
+  const { data } = await http.post<LoginResult>('/auth/login', payload)
   return data
 }
 
 export async function logout(): Promise<void> {
-  await http.post('/logout')
+  try {
+    await http.post('/auth/logout')
+  } catch {
+    // Ignore logout errors
+  }
 }
 
 export async function getUsers(): Promise<User[]> {
@@ -72,7 +117,7 @@ export async function updateCompany(id: number, payload: Partial<Omit<CompanySum
 }
 
 export async function getVulnerabilities(role?: string, userId?: number): Promise<Vulnerability[]> {
-  const params: Record<string, string> = {}
+  const params: Record<string, string> = { page: '1', page_size: '200' }
   if (role) params.role = role
   if (userId) params.user_id = String(userId)
   const { data } = await http.get<Vulnerability[]>('/vulnerabilidades', { params })

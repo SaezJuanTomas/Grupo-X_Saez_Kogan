@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from .auth import hash_password
-from .models import Comment, Company, HistoryLog, User, Vulnerability
+from .models import Comment, Company, HistoryLog, Severity, User, UserRole, Vulnerability, VulnerabilityStatus
 
 
 def seed_database(db: Session) -> None:
@@ -11,10 +11,10 @@ def seed_database(db: Session) -> None:
         return
 
     users = [
-        User(username="admin", email="admin@grupox.local", role="admin", password=hash_password("123"), active=True, latest_activity="Revisó estadísticas"),
-        User(username="analyst", email="analyst@grupox.local", role="analyst", password=hash_password("123"), active=True, latest_activity="Actualizó estado de CVE-2025-001"),
-        User(username="juan", email="juan@grupox.local", role="analyst", password=hash_password("123"), active=True, latest_activity="Asignado a nueva vulnerabilidad"),
-        User(username="maria", email="maria@grupox.local", role="analyst", password=hash_password("123"), active=False, latest_activity="Cuenta inactiva temporalmente"),
+        User(username="admin", email="admin@example.com", role=UserRole.ADMIN, password=hash_password("Admin123!"), active=True, latest_activity="Revisó estadísticas"),
+        User(username="analyst", email="analyst@example.com", role=UserRole.ANALYST, password=hash_password("Analyst123!"), active=True, latest_activity="Actualizó estado de CVE-2025-001"),
+        User(username="juan", email="juan@example.com", role=UserRole.ANALYST, password=hash_password("Juan123!"), active=True, latest_activity="Asignado a nueva vulnerabilidad"),
+        User(username="maria", email="maria@example.com", role=UserRole.ANALYST, password=hash_password("Maria123!"), active=False, latest_activity="Cuenta inactiva temporalmente"),
     ]
     db.add_all(users)
     db.flush()
@@ -30,78 +30,12 @@ def seed_database(db: Session) -> None:
     db.flush()
 
     vulnerabilities = [
-        Vulnerability(
-            cve="CVE-2025-001",
-            description="Exposición de panel interno por configuración débil de autenticación.",
-            affected_technology="Apache",
-            irc=8.9,
-            severity="Crítica",
-            status="Pendiente",
-            company_id=companies[0].id,
-            assigned_analyst_id=users[1].id,
-            created_at=datetime.utcnow() - timedelta(days=4),
-            updated_at=datetime.utcnow() - timedelta(days=1),
-        ),
-        Vulnerability(
-            cve="CVE-2025-002",
-            description="Cabeceras de seguridad ausentes en una aplicación interna de reportes.",
-            affected_technology=".NET",
-            irc=6.7,
-            severity="Alta",
-            status="En progreso",
-            company_id=companies[1].id,
-            assigned_analyst_id=users[2].id,
-            created_at=datetime.utcnow() - timedelta(days=6),
-            updated_at=datetime.utcnow() - timedelta(hours=12),
-        ),
-        Vulnerability(
-            cve="CVE-2025-003",
-            description="Dependencia desactualizada con riesgo de ejecución remota limitada.",
-            affected_technology="Node.js",
-            irc=5.2,
-            severity="Media",
-            status="Resuelto",
-            company_id=companies[2].id,
-            assigned_analyst_id=users[1].id,
-            created_at=datetime.utcnow() - timedelta(days=9),
-            updated_at=datetime.utcnow() - timedelta(days=2),
-        ),
-        Vulnerability(
-            cve="CVE-2025-004",
-            description="Permisos excesivos en almacenamiento compartido.",
-            affected_technology="Docker",
-            irc=4.1,
-            severity="Baja",
-            status="Pendiente",
-            company_id=companies[0].id,
-            assigned_analyst_id=users[2].id,
-            created_at=datetime.utcnow() - timedelta(days=2),
-            updated_at=datetime.utcnow() - timedelta(hours=8),
-        ),
-        Vulnerability(
-            cve="CVE-2025-005",
-            description="Vulnerabilidad en la configuración de Kubernetes que permite escalada de privilegios en contenedores.",
-            affected_technology="Kubernetes",
-            irc=7.8,
-            severity="Alta",
-            status="Pendiente",
-            company_id=companies[3].id,
-            assigned_analyst_id=users[2].id,
-            created_at=datetime.utcnow() - timedelta(hours=6),
-            updated_at=datetime.utcnow() - timedelta(hours=6),
-        ),
-        Vulnerability(
-            cve="CVE-2025-006",
-            description="Plugin de WordPress con inyección SQL que permite extraer información de la base de datos MySQL.",
-            affected_technology="WordPress",
-            irc=6.5,
-            severity="Alta",
-            status="Pendiente",
-            company_id=companies[4].id,
-            assigned_analyst_id=users[1].id,
-            created_at=datetime.utcnow() - timedelta(hours=3),
-            updated_at=datetime.utcnow() - timedelta(hours=3),
-        ),
+        Vulnerability(cve="CVE-2025-001", description="Exposición de panel interno por configuración débil de autenticación.", affected_technology="Apache", irc=8.9, severity=Severity.CRITICA, status=VulnerabilityStatus.PENDIENTE, company_id=companies[0].id, assigned_analyst_id=users[1].id, created_at=datetime.utcnow() - timedelta(days=4), updated_at=datetime.utcnow() - timedelta(days=1)),
+        Vulnerability(cve="CVE-2025-002", description="Cabeceras de seguridad ausentes en una aplicación interna de reportes.", affected_technology=".NET", irc=6.7, severity=Severity.ALTA, status=VulnerabilityStatus.EN_PROGRESO, company_id=companies[1].id, assigned_analyst_id=users[2].id, created_at=datetime.utcnow() - timedelta(days=6), updated_at=datetime.utcnow() - timedelta(hours=12)),
+        Vulnerability(cve="CVE-2025-003", description="Dependencia desactualizada con riesgo de ejecución remota limitada.", affected_technology="Node.js", irc=5.2, severity=Severity.MEDIA, status=VulnerabilityStatus.RESUELTO, company_id=companies[2].id, assigned_analyst_id=users[1].id, created_at=datetime.utcnow() - timedelta(days=9), updated_at=datetime.utcnow() - timedelta(days=2)),
+        Vulnerability(cve="CVE-2025-004", description="Permisos excesivos en almacenamiento compartido.", affected_technology="Docker", irc=4.1, severity=Severity.BAJA, status=VulnerabilityStatus.PENDIENTE, company_id=companies[0].id, assigned_analyst_id=users[2].id, created_at=datetime.utcnow() - timedelta(days=2), updated_at=datetime.utcnow() - timedelta(hours=8)),
+        Vulnerability(cve="CVE-2025-005", description="Vulnerabilidad en la configuración de Kubernetes que permite escalada de privilegios en contenedores.", affected_technology="Kubernetes", irc=7.8, severity=Severity.ALTA, status=VulnerabilityStatus.PENDIENTE, company_id=companies[3].id, assigned_analyst_id=users[2].id, created_at=datetime.utcnow() - timedelta(hours=6), updated_at=datetime.utcnow() - timedelta(hours=6)),
+        Vulnerability(cve="CVE-2025-006", description="Plugin de WordPress con inyección SQL que permite extraer información de la base de datos MySQL.", affected_technology="WordPress", irc=6.5, severity=Severity.ALTA, status=VulnerabilityStatus.PENDIENTE, company_id=companies[4].id, assigned_analyst_id=users[1].id, created_at=datetime.utcnow() - timedelta(hours=3), updated_at=datetime.utcnow() - timedelta(hours=3)),
     ]
     db.add_all(vulnerabilities)
     db.flush()

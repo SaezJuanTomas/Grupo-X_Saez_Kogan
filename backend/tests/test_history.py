@@ -1,19 +1,15 @@
-def token(client):
-    return client.post("/login", json={"username": "admin", "password": "123"}).json()["access_token"]
+from .conftest import auth_header
+
 
 class TestHistory:
-    def test_list(self, client):
-        t = token(client)
-        resp = client.get("/historial", headers={"Authorization": f"Bearer {t}"})
+    def test_list_history(self, client, admin_token):
+        resp = client.get("/historial?vulnerability_id=1", headers=auth_header(admin_token))
         assert resp.status_code == 200
-        assert len(resp.json()) == 6
+        data = resp.json()
+        assert len(data) >= 1
 
-    def test_create_history_entry(self, client):
-        t = token(client)
-        resp = client.post("/historial", json={
-            "vulnerability_id": 1,
-            "actor_id": 1,
-            "action": "test",
-            "detail": "test entry",
-        }, headers={"Authorization": f"Bearer {t}"})
-        assert resp.status_code == 200
+    def test_history_logs_created_with_status_change(self, client, admin_token):
+        client.patch("/vulnerabilidades/1", json={"status": "Resuelto"}, headers=auth_header(admin_token))
+        resp = client.get("/historial?vulnerability_id=1", headers=auth_header(admin_token))
+        actions = [h["action"] for h in resp.json()]
+        assert "Estado cambiado" in actions

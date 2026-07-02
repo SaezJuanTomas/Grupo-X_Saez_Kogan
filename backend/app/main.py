@@ -1,6 +1,15 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
+from .core.config import config
+from .core.exceptions import register_exception_handlers
+from .core.logging import LoggingMiddleware, setup_logging
+from .core.rate_limit import limiter
 from .database import Base, SessionLocal, engine
 from .routers import (
     auth_router,
@@ -14,30 +23,50 @@ from .routers import (
 )
 from .seed import seed_database
 
-app = FastAPI(title="Grupo X API", version="1.0.0")
+setup_logging(config.LOG_LEVEL)
 
+app = FastAPI(title="Grupo X API - Gestión de Vulnerabilidades", version="2.0.0", docs_url="/docs", redoc_url="/redoc")
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.add_middleware(SlowAPIMiddleware)
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
+
+register_exception_handlers(app)
 
 
 @app.on_event("startup")
 def on_startup() -> None:
-    Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
     try:
-        seed_database(db)
-    finally:
-        db.close()
+        Base.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        try:
+            seed_database(db)
+            logging.getLogger("app").info("Database seeded successfully")
+        finally:
+            db.close()
+    except Exception as e:
+        logging.getLogger("app").warning(f"Database initialization skipped: {e}")
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+def health():
+    try:
+        db = SessionLocal()
+        db.execute(db.bind.dialect.statement_compiler(db.bind, db.bind.dialect().select_1()).__class__.__name__)
+        db_status = "ok"
+        db.close()
+    except Exception:
+        db_status = "error"
+    return {"status": "ok", "database": db_status, "version": "2.0.0"}
 
 
 app.include_router(auth_router.router)

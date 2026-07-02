@@ -1,24 +1,30 @@
-import os
-import threading
+import json
 import urllib.request
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
+from ..core.config import config
+from ..core.logging import get_logger
 from ..models import Company
 from ..repositories.company_repository import CompanyRepository
 from ..repositories.user_repository import UserRepository
 
-N8N_WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/trigger-nvd-fetch")
+logger = get_logger(__name__)
 
 
-def _trigger_n8n_fetch():
+def trigger_n8n_fetch():
     try:
-        req = urllib.request.Request(N8N_WEBHOOK_URL, data=b"{}", method="POST")
+        req = urllib.request.Request(
+            config.N8N_WEBHOOK_URL,
+            data=json.dumps({"trigger": "new_company"}).encode(),
+            method="POST",
+        )
         req.add_header("Content-Type", "application/json")
         urllib.request.urlopen(req, timeout=5)
-    except Exception:
-        pass
+        logger.info("n8n fetch triggered successfully")
+    except Exception as e:
+        logger.warning(f"Failed to trigger n8n fetch: {e}")
 
 
 class CompanyService:
@@ -37,7 +43,10 @@ class CompanyService:
             default_analyst = self.user_repo.get_first_analyst()
             kwargs["assigned_analyst_id"] = default_analyst.id if default_analyst else None
         company = self.company_repo.create(**kwargs)
-        threading.Thread(target=_trigger_n8n_fetch, daemon=True).start()
+        try:
+            trigger_n8n_fetch()
+        except Exception:
+            logger.warning("Could not trigger n8n, continuing...")
         return company
 
     def update_company(self, company_id: int, changes: dict) -> Optional[Company]:

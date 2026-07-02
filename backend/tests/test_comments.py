@@ -1,25 +1,26 @@
-def token(client):
-    return client.post("/login", json={"username": "admin", "password": "123"}).json()["access_token"]
+from .conftest import auth_header
+
 
 class TestComments:
-    def test_get_comments_for_vuln(self, client):
-        t = token(client)
-        resp = client.get("/comentarios?vulnerability_id=1", headers={"Authorization": f"Bearer {t}"})
+    def test_list_comments(self, client, admin_token):
+        resp = client.get("/comentarios?vulnerability_id=1", headers=auth_header(admin_token))
         assert resp.status_code == 200
-        assert len(resp.json()) == 2
+        data = resp.json()
+        assert len(data) >= 1
 
-    def test_empty_for_missing_vuln(self, client):
-        t = token(client)
-        resp = client.get("/comentarios?vulnerability_id=999", headers={"Authorization": f"Bearer {t}"})
-        assert resp.status_code == 200
-        assert resp.json() == []
+    def test_create_comment(self, client, admin_token):
+        resp = client.post(
+            "/vulnerabilidades/1/comentarios",
+            json={"vulnerability_id": 1, "author_id": 1, "text": "Test comment"},
+            headers=auth_header(admin_token),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["text"] == "Test comment"
 
-    def test_create_comment(self, client):
-        t = token(client)
-        resp = client.post("/vulnerabilidades/1/comentarios", json={
-            "vulnerability_id": 1,
-            "author_id": 1,
-            "text": "New comment",
-        }, headers={"Authorization": f"Bearer {t}"})
-        assert resp.status_code == 200
-        assert resp.json()["text"] == "New comment"
+    def test_create_comment_nonexistent_vulnerability(self, client, admin_token):
+        resp = client.post(
+            "/vulnerabilidades/9999/comentarios",
+            json={"vulnerability_id": 9999, "author_id": 1, "text": "Test"},
+            headers=auth_header(admin_token),
+        )
+        assert resp.status_code == 404

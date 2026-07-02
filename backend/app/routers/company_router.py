@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, require_admin
+from ..core.deps import get_current_user, require_admin
+from ..core.exceptions import ResourceNotFoundError
 from ..database import get_db
 from ..models import User
 from ..schemas import CompanyBase, CompanyRead, CompanyUpdate
@@ -26,11 +27,11 @@ def get_company(
 ):
     company = CompanyService(db).get_company(company_id)
     if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
+        raise ResourceNotFoundError("Empresa no encontrada")
     return company
 
 
-@router.post("/empresas", response_model=CompanyRead)
+@router.post("/empresas", response_model=CompanyRead, status_code=201)
 def create_company(
     payload: CompanyBase,
     db: Session = Depends(get_db),
@@ -48,5 +49,5 @@ def update_company(
 ):
     company = CompanyService(db).update_company(company_id, payload.model_dump(exclude_unset=True))
     if not company:
-        raise HTTPException(status_code=404, detail="Company not found")
+        raise ResourceNotFoundError("Empresa no encontrada")
     return company

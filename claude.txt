@@ -1,0 +1,919 @@
+================================================================================
+  GRUPO X – SISTEMA DE GESTIÓN DE VULNERABILIDADES
+  DOCUMENTO COMPLETO DEL PROYECTO IMPLEMENTADO
+  (Para cotejar con PDF de tesis)
+================================================================================
+
+INDICE
+  1. DESCRIPCION GENERAL
+  2. ARQUITECTURA
+  3. STACK TECNOLOGICO
+  4. MODELO DE DATOS (6 tablas)
+  5. ENDPOINTS DE LA API (30 endpoints)
+  6. SISTEMA DE AUTENTICACION
+  7. ARQUITECTURA DE CAPAS (BACKEND)
+  8. MODULOS CORE
+  9. SEED DATA
+  10. FRONTEND
+  11. TESTS (40 tests)
+  12. INTEGRACION N8N
+  13. CONFIGURACION Y ENTORNO
+  14. DIAGRAMA DE FLUJO DE AUTENTICACION
+  15. ESTRUCTURA DE ARCHIVOS COMPLETA
+
+
+================================================================================
+1. DESCRIPCION GENERAL
+================================================================================
+
+Aplicacion web full-stack para la gestion de vulnerabilidades de seguridad
+informatica. El sistema permite a equipos de seguridad registrar, clasificar,
+asignar, dar seguimiento y reportar vulnerabilidades en empresas clientes.
+
+Casos de uso principales:
+  - Admin: CRUD completo de vulnerabilidades, empresas, usuarios;
+           dashboard de estadisticas; asignacion a analistas
+  - Analyst: visualizar sus vulnerabilidades asignadas, agregar comentarios
+  - Sistema: refresh tokens con rotacion, historial de cambios automatico,
+             rate limiting, integracion con n8n para NVD
+
+
+================================================================================
+2. ARQUITECTURA
+================================================================================
+
+Frontend (React + Vite) ----HTTP----> Backend (FastAPI) ----SQL----> PostgreSQL
+
+  - Frontend: http://localhost:5173
+  - Backend:  http://localhost:8000
+  - Backend API: http://localhost:8000/docs (Swagger UI)
+
+Patron de capas en backend:
+  Router (HTTP) -> Service (logica de negocio) -> Repository (base de datos)
+
+Flujo tipico de request:
+  Request HTTP
+    -> LoggingMiddleware (request ID + timing)
+    -> SlowAPIMiddleware (rate limiting)
+    -> CORSMiddleware
+    -> Exception Handlers (errores globales)
+    -> Router -> Service -> Repository -> SQLAlchemy -> DB
+
+
+================================================================================
+3. STACK TECNOLOGICO
+================================================================================
+
+BACKEND:
+  - Python 3.11
+  - FastAPI (framework web ASGI)
+  - SQLAlchemy 2.0 (ORM)
+  - PostgreSQL (produccion)
+  - SQLite (tests, in-memory)
+  - Pydantic v2 (validacion de schemas)
+  - python-jose (JWT tokens)
+  - passlib + bcrypt (hashing de passwords)
+  - slowapi (rate limiting)
+  - uvicorn (servidor ASGI)
+
+FRONTEND:
+  - React 19
+  - TypeScript
+  - Vite (bundler)
+  - React Router v6 (ruteo)
+  - Axios (HTTP client)
+  - Tailwind CSS (estilos)
+
+HERRAMIENTAS:
+  - n8n (automatizacion NVD)
+  - Docker (contenedores)
+  - pytest (testing)
+
+
+================================================================================
+4. MODELO DE DATOS
+================================================================================
+
+TABLA: users
+  id                Integer        PK, autoincrement, index
+  username          String(100)    UNIQUE, NOT NULL, index
+  email             String(255)    NOT NULL
+  role              Enum           UserRole (admin|analyst|viewer), index
+  password          String(255)    NOT NULL (hash bcrypt)
+  active            Boolean        default=True, index
+  token_version     Integer        default=0 (para revocacion de JWTs)
+  latest_activity   String(255)    default="Actividad inicial"
+  created_at        DateTime       default=utcnow, NOT NULL
+  updated_at        DateTime       default=utcnow, onupdate=utcnow, NOT NULL
+
+  Relaciones:
+    vulnerabilities (as analyst) -> Vulnerability.assigned_analyst_id
+    comments                      -> Comment.author_id
+    history_logs                  -> HistoryLog.actor_id
+
+TABLA: companies
+  id                Integer        PK, autoincrement, index
+  name              String(255)    NOT NULL
+  sector            String(255)    NOT NULL
+  contact           String(255)    NOT NULL
+  technologies      JSON           default=[]
+  assigned_analyst_id Integer      FK -> users.id, NULLABLE
+  created_at        DateTime       default=utcnow, NOT NULL
+  updated_at        DateTime       default=utcnow, onupdate=utcnow, NOT NULL
+
+  Relaciones:
+    vulnerabilities -> Vulnerability.company_id
+
+TABLA: vulnerabilities
+  id                Integer        PK, autoincrement, index
+  cve               String(50)     NOT NULL, index
+  description       Text           NOT NULL
+  affected_technology String(255)  NULLABLE
+  irc               Float          NOT NULL (rango 0-10)
+  severity          Enum           Severity (Critica|Alta|Media|Baja), index
+  status            Enum           VulnerabilityStatus (Pendiente|En progreso|Resuelto|Cerrado), index
+  company_id        Integer        FK -> companies.id, NOT NULL, index
+  assigned_analyst_id Integer      FK -> users.id, NULLABLE, index
+  created_at        DateTime       default=utcnow, NOT NULL
+  updated_at        DateTime       default=utcnow, onupdate=utcnow, NOT NULL
+
+  Indices adicionales:
+    ix_vulnerabilities_created_at (created_at)
+    ix_vulnerabilities_irc (irc)
+
+  Relaciones:
+    company     -> Company
+    analyst     -> User
+    comments    -> Comment (cascade delete)
+    history_logs -> HistoryLog (cascade delete)
+
+TABLA: comments
+  id                Integer        PK, autoincrement, index
+  vulnerability_id  Integer        FK -> vulnerabilities.id, NOT NULL, index
+  author_id         Integer        FK -> users.id, NOT NULL, index
+  text              Text           NOT NULL
+  created_at        DateTime       default=utcnow, NOT NULL
+
+  (cascade delete cuando se elimina la vulnerability)
+
+TABLA: history_logs
+  id                Integer        PK, autoincrement, index
+  vulnerability_id  Integer        FK -> vulnerabilities.id, NOT NULL, index
+  actor_id          Integer        FK -> users.id, NULLABLE, index
+  action            String(100)    NOT NULL (ej: "Creado", "Asignado", "Estado cambiado")
+  detail            String(500)    NOT NULL
+  ip_address        String(50)     NULLABLE
+  created_at        DateTime       default=utcnow, NOT NULL, index
+
+  (cascade delete cuando se elimina la vulnerability)
+
+TABLA: refresh_tokens
+  id                Integer        PK, autoincrement, index
+  jti               String(255)    UNIQUE, NOT NULL, index (UUID v4)
+  user_id           Integer        FK -> users.id, NOT NULL, index
+  expires_at        DateTime       NOT NULL
+  revoked           Boolean        default=False
+  created_at        DateTime       default=utcnow, NOT NULL
+
+ENUMS:
+  UserRole:           ["admin", "analyst", "viewer"]
+  Severity:           ["Critica", "Alta", "Media", "Baja"]
+  VulnerabilityStatus: ["Pendiente", "En progreso", "Resuelto", "Cerrado"]
+
+
+================================================================================
+5. ENDPOINTS DE LA API
+================================================================================
+
+AUTH (router: auth_router.py)
+--------------------------------------------------
+  POST   /auth/login
+         Body:     { "username": str, "password": str }
+         Response: { "access_token": str, "refresh_token": str, "token_type": "bearer",
+                      "user_id": int, "username": str, "role": str }
+         Rate limit: 5/minuto por IP
+         Auth: none
+
+  POST   /auth/refresh
+         Body:     { "refresh_token": str }
+         Response: { "access_token": str, "refresh_token": str, "token_type": "bearer" }
+         Detalle: Invalida el refresh token anterior (rotacion)
+         Auth: none (usa el refresh token)
+
+  POST   /auth/logout
+         Response: { "message": "Sesion cerrada" }
+         Accion: Revoca todos los refresh tokens del usuario
+                 Incrementa token_version (invalida access tokens)
+         Auth: Bearer token
+
+  GET    /auth/me
+         Response: { "id": int, "username": str, "email": str, "role": str, "active": bool }
+         Auth: Bearer token
+
+  GET    /health
+         Response: { "status": "ok", "database": "ok"|"error", "version": "2.0.0" }
+         Auth: none
+
+
+VULNERABILIDADES (router: vulnerability_router.py)
+--------------------------------------------------
+  GET    /vulnerabilidades
+         Query:  ?role=str&user_id=int&page=int&page_size=int
+         Response: list[VulnerabilityRead]
+         Auth: Bearer token
+
+  GET    /vulnerabilidades/{id}
+         Response: VulnerabilityRead (con company embebida)
+         Auth: Bearer token
+
+  POST   /vulnerabilidades
+         Body: VulnerabilityCreate
+         Status: 201
+         Auth: Bearer token + admin
+
+  PATCH  /vulnerabilidades/{id}
+         Body: VulnerabilityUpdate
+         Response: VulnerabilityRead
+         Detalle: Solo admin puede cambiar status o assigned_analyst_id
+                  Genera automaticamente entradas en history_logs
+         Auth: Bearer token
+
+  DELETE /vulnerabilidades/{id}
+         Response: { "message": "Vulnerabilidad eliminada" }
+         Detalle: Cascade delete a comments e history_logs asociados
+         Auth: Bearer token + admin
+
+
+EMPRESAS (router: company_router.py)
+--------------------------------------------------
+  GET    /empresas
+         Response: list[CompanyRead]
+         Auth: Bearer token
+
+  GET    /empresas/{id}
+         Response: CompanyRead
+         Auth: Bearer token
+
+  POST   /empresas
+         Body: CompanyBase
+         Status: 201
+         Detalle: Asigna automaticamente el primer analyst disponible
+                  Dispara webhook a n8n para fetch de NVD
+         Auth: Bearer token + admin
+
+  PATCH  /empresas/{id}
+         Body: CompanyUpdate
+         Auth: Bearer token + admin
+
+
+COMENTARIOS (router: comment_router.py)
+--------------------------------------------------
+  GET    /comentarios
+         Query: ?vulnerability_id=int
+         Response: list[CommentRead]
+         Auth: Bearer token
+
+  POST   /vulnerabilidades/{id}/comentarios
+         Body: CommentCreate
+         Status: 201
+         Detalle: Registra automaticamente en history_logs
+         Auth: Bearer token
+
+
+HISTORIAL (router: history_router.py)
+--------------------------------------------------
+  GET    /historial
+         Query: ?vulnerability_id=int
+         Response: list[HistoryLogRead]
+         Auth: Bearer token
+
+
+ESTADISTICAS (router: statistics_router.py)
+--------------------------------------------------
+  GET    /estadisticas
+         Response: DashboardStats {
+           "critical": int, "pending": int, "resolved": int,
+           "active_users": int, "severity_counts": dict,
+           "status_counts": dict, "analyst_activity": list,
+           "irc_distribution": { "0-3": int, "3-6": int, "6-8": int, "8-10": int }
+         }
+         Auth: Bearer token
+
+  GET    /estadisticas/tendencias
+         Query: ?days=int (default 7, max 90)
+         Response: { "created": [TrendPoint], "resolved": [TrendPoint] }
+         TrendPoint: { "date": str (YYYY-MM-DD), "count": int }
+         Auth: Bearer token
+
+
+WEBHOOKS N8N (router: n8n_router.py, prefijo: /webhook/n8n)
+--------------------------------------------------
+  GET    /webhook/n8n/empresas
+         Response: list[CompanyRead]
+         Auth: X-API-Key header
+
+  POST   /webhook/n8n/vulnerabilidades
+         Body: VulnerabilityCreate
+         Status: 201
+         Auth: X-API-Key header
+
+  GET    /webhook/n8n/vulnerabilidades/existe
+         Query: ?cve=str
+         Response: { "exists": bool }
+         Auth: X-API-Key header
+
+
+================================================================================
+6. SISTEMA DE AUTENTICACION
+================================================================================
+
+6.1 JWT Access Token
+  - Algoritmo: HS256
+  - Payload: { sub: user_id, role: str, type: "access", ver: token_version, exp: timestamp }
+  - Duracion: 30 minutos (configurable via ACCESS_TOKEN_EXPIRE_MINUTES)
+  - Incluye "ver" (token_version) para permitir revocacion
+
+6.2 Refresh Token
+  - Payload: { sub: user_id, jti: UUID, type: "refresh", exp: timestamp }
+  - Duracion: 7 dias (configurable via REFRESH_TOKEN_EXPIRE_DAYS)
+  - Almacenado en tabla refresh_tokens con jti unico
+  - Rotacion: cada uso invalida el anterior (revoked=True)
+  - Reuso detectado: si se usa un refresh token ya revocado, se rechaza
+
+6.3 Flujo de login
+  1. POST /auth/login con { username, password }
+  2. Verificar password con bcrypt
+  3. Verificar que el usuario este activo
+  4. Generar access_token (JWT con token_version actual)
+  5. Generar refresh_token (JWT + registro en DB)
+  6. Devolver ambos tokens + datos del usuario
+
+6.4 Flujo de refresh
+  1. POST /auth/refresh con { refresh_token }
+  2. Decodificar JWT, verificar tipo "refresh"
+  3. Buscar RefreshToken por jti, que no este revocado y no haya expirado
+  4. Marcar como revoked=True
+  5. Generar NUEVO par access_token + refresh_token
+  6. Devolver nuevos tokens
+
+6.5 Flujo de logout
+  1. POST /auth/logout con Bearer token
+  2. Revocar todos los refresh_token activos del usuario (revoked=True)
+  3. Incrementar token_version del usuario (invalida todos sus access tokens previos)
+
+6.6 Verificacion de acceso (get_current_user)
+  1. Extraer Bearer token del header Authorization
+  2. Decodificar JWT, verificar tipo "access"
+  3. Obtener user_id del payload
+  4. Cargar usuario de DB
+  5. Verificar que el usuario exista y este activo
+  6. Verificar que token_version del JWT coincida con el del usuario
+     (si no coincide, el token fue emitido antes de un logout y esta revocado)
+
+6.7 Jerarquia de permisos
+  - get_current_user: cualquier usuario autenticado (incluyendo viewer)
+  - require_admin: solo rol "admin"
+  - require_analyst: roles "admin" o "analyst"
+
+
+================================================================================
+7. ARQUITECTURA DE CAPAS (BACKEND)
+================================================================================
+
+7.1 CAPA DE ROUTERS (app/routers/)
+  auth_router.py        -> AuthService (login)
+  user_router.py        -> UserService
+  vulnerability_router.py -> VulnerabilityService
+  company_router.py     -> CompanyService
+  statistics_router.py  -> StatisticsService
+  comment_router.py     -> VulnerabilityService (add_comment)
+  history_router.py     -> HistoryRepository (directo)
+  n8n_router.py         -> VulnerabilityService, CompanyRepository (directo)
+
+  Responsabilidades:
+    - Definir rutas y metodos HTTP
+    - Inyectar dependencias (db, current_user)
+    - Validar permisos via require_admin / require_analyst
+    - Validar request body via Pydantic schemas
+    - Delegar logica a servicios
+    - Manejar respuestas HTTP (status codes, serializacion)
+
+7.2 CAPA DE SERVICIOS (app/services/)
+  AuthService
+    - login(username, password) -> User | None
+    - create_user(...) -> User
+
+  UserService
+    - list_users() -> list[dict] (incluye assigned_vulnerabilities count)
+    - create_user(username, email, role, password) -> User
+    - update_user(user_id, changes) -> dict | None
+
+  VulnerabilityService
+    - list_vulnerabilities(role, user_id, page, page_size) -> list[Vulnerability]
+    - get_vulnerability(id) -> Vulnerability | None
+    - create_vulnerability(**kwargs) -> Vulnerability (crea history_log)
+    - update_vulnerability(id, changes, actor_id) -> Vulnerability | None (crea history_logs)
+    - delete_vulnerability(id) -> bool
+    - add_comment(vulnerability_id, author_id, text) -> Comment (crea history_log)
+
+  CompanyService
+    - list_companies() -> list[Company]
+    - get_company(id) -> Company | None
+    - create_company(**kwargs) -> Company (asigna analyst por defecto, trigger n8n)
+    - update_company(id, changes) -> Company | None
+
+  StatisticsService
+    - get_dashboard_stats() -> dict (severity_counts, status_counts, analyst_activity, etc.)
+    - (trends se calcula directamente en el router)
+
+7.3 CAPA DE REPOSITORIOS (app/repositories/)
+  UserRepository
+    - list_all() -> list[User]
+    - get_by_id(id) -> User | None
+    - get_by_username(username) -> User | None
+    - create(**kwargs) -> User
+    - update(user, **kwargs) -> User
+    - count_active() -> int
+    - get_first_analyst() -> User | None
+
+  VulnerabilityRepository
+    - list_all(role, user_id, page, page_size) -> list[Vulnerability] (con joinedload company, analyst)
+    - get_by_id(id) -> Vulnerability | None (con joinedload)
+    - get_by_cve(cve) -> Vulnerability | None
+    - create(**kwargs) -> Vulnerability
+    - update(vulnerability, **kwargs) -> Vulnerability
+    - delete(vulnerability) -> None
+    - count_by_analyst(user_id) -> int
+    - count_by_analysts(user_ids) -> dict[int, int]
+    - count_high_irc(threshold) -> int
+    - count_in_range(lo, hi) -> int
+    - get_all() -> list[Vulnerability]
+
+  CompanyRepository
+    - list_all() -> list[Company]
+    - get_by_id(id) -> Company | None
+    - create(**kwargs) -> Company
+    - update(company, **kwargs) -> Company
+
+  CommentRepository
+    - list_by_vulnerability(vulnerability_id) -> list[Comment]
+    - create(**kwargs) -> Comment
+
+  HistoryRepository
+    - list_by_vulnerability(vulnerability_id) -> list[HistoryLog]
+    - create(**kwargs) -> HistoryLog
+    - count_by_actor(actor_id) -> int
+
+7.4 FLUJO TIPICO (ej: crear vulnerabilidad)
+  POST /vulnerabilidades (admin)
+    => vulnerability_router.create_vulnerability()
+      => require_admin (verifica token + rol admin)
+      => VulnerabilityService.create_vulnerability(...)
+        => VulnerabilityRepository.create(...)  [INSERT en DB]
+        => HistoryRepository.create(...)        [INSERT en history_logs]
+        => flush()
+      => return VulnerabilityRead
+
+7.5 FLUJO DE ACTUALIZACION CON AUDITORIA (ej: cambiar estado)
+  PATCH /vulnerabilidades/1 { "status": "Resuelto" }
+    => vulnerability_router.update_vulnerability()
+      => get_current_user()  [verifica token]
+      => verifica si cambia status o assignee y si es admin
+      => VulnerabilityService.update_vulnerability(1, changes, actor_id=user.id)
+        => VulnerabilityRepository.get_by_id(1)
+        => guarda previous_status y previous_assignee
+        => VulnerabilityRepository.update(vuln, status="Resuelto")
+        => si cambia status: HistoryRepository.create(action="Estado cambiado", ...)
+        => si cambia assignee: HistoryRepository.create(action="Asignado", ...)
+        => flush()
+      => return VulnerabilityRead
+
+
+================================================================================
+8. MODULOS CORE
+================================================================================
+
+8.1 config.py
+  Config(BaseSettings):
+    DATABASE_URL              = "postgresql://postgres:postgres@localhost:5435/grupo_x"
+    SECRET_KEY                = "change-me-in-production"
+    ALGORITHM                 = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES = 30
+    REFRESH_TOKEN_EXPIRE_DAYS = 7
+    CORS_ORIGINS              = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    RATE_LIMIT_LOGIN          = "5/15minutes"
+    N8N_API_KEY               = "change-me-n8n-api-key"
+    N8N_WEBHOOK_URL           = "http://localhost:5678/webhook/trigger-nvd-fetch"
+    NVD_API_KEY               = ""
+    LOG_LEVEL                 = "INFO"
+    (lee tambien de .env, extra ignorado)
+
+8.2 database.py
+    engine = create_engine(config.DATABASE_URL, pool_pre_ping=True)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base = declarative_base()
+    get_db() -> Session (yield, commit/rollback, close)
+
+8.3 deps.py
+    bearer_scheme = HTTPBearer()
+    get_current_user()  -> User (valida JWT, token_version, active)
+    require_role(*roles) -> User
+    require_admin       -> require_role("admin")
+    require_analyst     -> require_role("admin", "analyst")
+
+8.4 exceptions.py
+    AppError( Exception ): message, code, status_code
+      ResourceNotFoundError     -> 404, "not_found"
+      DuplicateResourceError    -> 409, "duplicate"
+      BusinessRuleError         -> 400, "business_rule_violation"
+      AuthenticationError       -> 401, "authentication_error"
+      AuthorizationError        -> 403, "authorization_error"
+
+    Exception Handlers registrados:
+      AppError            -> JSONResponse con { error: { code, message } }
+      HTTPException       -> JSONResponse con code mapeado (400->bad_request, 401->authentication_error, etc.)
+      RequestValidationError -> JSONResponse 422 con fields detallados
+      Exception generica  -> JSONResponse 500
+
+8.5 logging.py
+    setup_logging(level): configura logger "app" con handler stdout
+    get_logger(name): retorna logging.getLogger(f"app.{name}")
+    LoggingMiddleware:
+      - Asigna UUID a cada request (scope["request_id"])
+      - Logea request entrante (metodo, path, id, client, user-agent)
+      - Logea response saliente (status, tiempo en ms)
+      - Agrega headers X-Request-ID y X-Response-Time-ms
+      - Excluye paths de health, docs, redoc, openapi, favicon
+
+8.6 rate_limit.py
+    limiter = Limiter(key_func=get_remote_address, default_limits=[])
+    (instancia compartida usada por main.py y auth_router.py)
+
+
+================================================================================
+9. SEED DATA
+================================================================================
+
+El archivo seed.py se ejecuta al iniciar la aplicacion (si la tabla users
+esta vacia). Carga:
+
+USUARIOS (4):
+  admin   (admin@example.com / Admin123!)  Rol: admin   Activo: SI
+  analyst (analyst@example.com / Analyst123!) Rol: analyst Activo: SI
+  juan    (juan@example.com / Juan123!)    Rol: analyst Activo: SI
+  maria   (maria@example.com / Maria123!)  Rol: analyst Activo: NO
+
+EMPRESAS (5):
+  Saez Logistics   | Logistica   | ciso@saezlogistics.local     | Linux, Apache, Python, PostgreSQL, Docker
+  Kogan Health     | Salud       | security@koganhealth.local    | Windows Server, SQL Server, C#, .NET, AD
+  Grupo X Retail   | Comercio    | it@grupoxretail.local         | Nginx, Linux, MySQL, PHP, WordPress, Node.js, Tomcat
+  TechFlow SA      | Fintech     | security@techflow.local       | Kubernetes, Go, Redis, PostgreSQL, React
+  CloudPress       | Medios      | it@cloudpress.local           | Nginx, WordPress, MySQL, Apache, PHP, Redis
+
+VULNERABILIDADES (6):
+  1. CVE-2025-001 | Apache         | IRC 8.9 | Critica | Pendiente   | Saez Logistics  | analyst
+  2. CVE-2025-002 | .NET           | IRC 6.7 | Alta    | En progreso | Kogan Health    | juan
+  3. CVE-2025-003 | Node.js        | IRC 5.2 | Media   | Resuelto    | Grupo X Retail  | analyst
+  4. CVE-2025-004 | Docker         | IRC 4.1 | Baja    | Pendiente   | Saez Logistics  | juan
+  5. CVE-2025-005 | Kubernetes     | IRC 7.8 | Alta    | Pendiente   | TechFlow SA     | juan
+  6. CVE-2025-006 | WordPress      | IRC 6.5 | Alta    | Pendiente   | CloudPress      | analyst
+
+COMENTARIOS (10): distribuidos entre las vulnerabilidades, de distintos autores.
+HISTORIAL (11): registros de acciones (Creado, Asignado, Estado cambiado, Comentario agregado).
+
+
+================================================================================
+10. FRONTEND
+================================================================================
+
+Stack: React 19 + TypeScript + Vite + React Router v6 + Axios + Tailwind CSS
+
+API Client (lib/api.ts):
+  - Axios instance con baseURL desde VITE_API_URL (default http://localhost:8000)
+  - Interceptor request: agrega Bearer token desde localStorage
+  - Interceptor response: captura 401, hace refresh automatico:
+      1. Guarda refresh_token de localStorage
+      2. POST /auth/refresh
+      3. Actualiza access_token y refresh_token en localStorage
+      4. Reintenta la request original
+      5. Si hay multiples requests en cola, todas se resuelven con el nuevo token
+      6. Si falla el refresh, limpia localStorage y redirige a /login
+
+  Funciones exportadas:
+    login(payload)         -> POST /auth/login
+    logout()               -> POST /auth/logout
+    getUsers()             -> GET /usuarios
+    getCompanies()         -> GET /empresas
+    getCompany(id)         -> GET /empresas/{id}
+    createCompany(payload) -> POST /empresas
+    updateCompany(id, ...) -> PATCH /empresas/{id}
+    getVulnerabilities()   -> GET /vulnerabilidades?page=1&page_size=200
+    getVulnerability(id)   -> GET /vulnerabilidades/{id}
+    createVulnerability()  -> POST /vulnerabilidades
+    updateVulnerability()  -> PATCH /vulnerabilidades/{id}
+    deleteVulnerability()  -> DELETE /vulnerabilidades/{id}
+    getComments(vulnId)    -> GET /comentarios?vulnerability_id=...
+    createComment()        -> POST /vulnerabilidades/{id}/comentarios
+    getHistory(vulnId)     -> GET /historial?vulnerability_id=...
+    getStats()             -> GET /estadisticas
+    getTrends(days)        -> GET /estadisticas/tendencias?days=...
+    createUser(payload)    -> POST /usuarios
+    updateUser(id, ...)    -> PATCH /usuarios/{id}
+
+AuthContext (context/AuthContext.tsx):
+  - Provider que maneja sesion del usuario
+  - login(): llama a apiLogin, guarda access_token, refresh_token, session en localStorage
+  - logout(): llama a apiLogout, limpia localStorage
+  - loadSession(): recupera sesion de localStorage al recargar pagina
+  - user: SessionUser | null (id, username, role)
+  - error: string | null
+
+App.tsx (componente principal):
+  - Punto de entrada de la aplicacion
+  - Carga inicial de datos (usuarios, empresas, vulnerabilidades, stats) via useEffect
+  - Estados: loading, error, store (datos globales)
+  - Funciones CRUD que actualizan el store local (optimistic UI)
+  - Routing condicional segun autenticacion:
+    - No autenticado: LoginPage
+    - Autenticado: Layout con rutas protegidas
+  - ProtectedRoute: componente wrapper que verifica rol requerido
+
+Paginas y rutas:
+  /                  -> DashboardPage (resumen general)
+  /inicio            -> DashboardPage
+  /vulnerabilidades  -> VulnerabilitiesPage (lista con CRUD)
+  /vulnerabilidades/:id -> VulnerabilityDetailPage (detalle + comentarios + historial)
+  /empresas          -> CompaniesPage (solo admin)
+  /empresas/:id      -> CompanyDetailPage (solo admin)
+  /estadisticas      -> StatisticsPage (solo admin)
+  /equipo            -> TeamPage (solo admin)
+  /equipo/:id        -> TeamDetailPage (solo admin)
+  /usuarios          -> UsersPage (solo admin)
+  *                  -> DashboardPage (fallback)
+
+
+================================================================================
+11. TESTS
+================================================================================
+
+40 tests, todos pasando.
+Framework: pytest, TestClient de Starlette.
+Base de datos: SQLite in-memory (sobreescribe get_db via dependency_overrides).
+
+Config de test (conftest.py):
+  - db_session fixture: crea engine SQLite in-memory, crea tablas, carga seed data
+  - client fixture: sobreescribe get_db con la sesion de test, crea TestClient, resetea limiter
+  - admin_token fixture: hace login como admin y devuelve access_token
+  - analyst_token fixture: hace login como analyst y devuelve access_token
+  - auth_header(token): helper para { "Authorization": "Bearer ..." }
+
+TEST AUTH (test_auth.py) - 12 tests:
+  test_health                              Verifica GET /health
+  test_login_success                       Login correcto devuelve tokens + rol
+  test_login_invalid                       Login con password incorrecto -> 401
+  test_login_inactive_user                 Login de usuario inactivo -> 401
+  test_refresh_token                       Refresh correcto devuelve nuevos tokens
+  test_refresh_token_invalid               Refresh con token invalido -> 401
+  test_refresh_token_reuse                 Token reusado despues de refresh -> 401
+  test_logout_requires_auth                Logout sin token -> 403
+  test_logout_success                      Logout exitoso -> 200
+  test_token_revoked_after_logout          Access token invalido despues de logout -> 401
+  test_get_me                              GET /auth/me devuelve datos del usuario
+  test_rate_limit_login                    6to intento de login en misma IP -> 429
+
+TEST VULNERABILIDADES (test_vulnerabilities.py) - 10 tests:
+  test_list_as_admin                       Listar todas (admin) -> 6 resultados
+  test_list_as_analyst_filtered            Listar filtrado por analyst -> solo sus asignadas
+  test_list_pagination                     Paginacion funciona
+  test_create_vulnerability                Crear vulnerabilidad (admin) -> 201
+  test_create_as_analyst_forbidden         Crear como analyst -> 403
+  test_create_invalid_irc                  IRC fuera de rango (15) -> 422
+  test_delete_vulnerability                Eliminar -> 200, luego listar -> 5
+  test_delete_as_analyst_forbidden         Eliminar como analyst -> 403
+  test_get_nonexistent_returns_404         Buscar ID inexistente -> 404
+  test_update_vulnerability_status         Actualizar estado -> 200
+  test_analyst_cannot_change_status        Analyst cambia estado -> 403
+
+TEST USERS (test_users.py) - 6 tests:
+  test_list_users                          Listar usuarios -> 4, todos con assigned_vulnerabilities
+  test_list_users_forbidden_for_analyst    Analyst lista usuarios -> 403
+  test_create_user                         Crear usuario (admin) -> 201
+  test_create_user_weak_password           Password debil -> 422
+  test_create_duplicate_user               Username duplicado -> 409
+  test_update_user                         Actualizar usuario -> 200
+
+TEST COMPANIES (test_companies.py) - 4 tests:
+  test_list_companies                      Listar empresas
+  test_create_company                      Crear empresa (admin)
+  test_get_company                         Obtener detalle
+  test_get_nonexistent_company             Buscar ID inexistente -> 404
+
+TEST COMMENTS (test_comments.py) - 3 tests:
+  test_list_comments                       Listar comentarios de una vulnerabilidad
+  test_create_comment                      Crear comentario
+  test_create_comment_nonexistent_vulnerability  Comentar en vuln inexistente
+
+TEST HISTORY (test_history.py) - 2 tests:
+  test_list_history                        Listar historial
+  test_history_logs_created_with_status_change  Verificar que al cambiar estado se crea log
+
+TEST STATISTICS (test_statistics.py) - 2 tests:
+  test_get_dashboard_stats                 Dashboard con todos los campos requeridos
+  test_get_trends                          Tendencias con created y resolved
+
+
+================================================================================
+12. INTEGRACION N8N
+================================================================================
+
+Endpoint: /webhook/n8n/* (protegido por X-API-Key header)
+
+La integracion con n8n permite automatizar la busqueda de CVEs desde la NVD
+(National Vulnerability Database) cuando se crea una nueva empresa.
+
+Flujo:
+  1. Admin crea una empresa via POST /empresas
+  2. CompanyService.create_company() llama a trigger_n8n_fetch()
+  3. trigger_n8n_fetch() hace POST a config.N8N_WEBHOOK_URL con { "trigger": "new_company" }
+  4. n8n recibe el webhook, busca CVEs relacionados con las tecnologias de la empresa
+  5. n8n crea vulnerabilidades via POST /webhook/n8n/vulnerabilidades
+
+Webhooks n8n disponibles:
+  GET  /webhook/n8n/empresas               -> lista empresas (para que n8n las conozca)
+  POST /webhook/n8n/vulnerabilidades       -> crea vulnerabilidad (n8n envia CVEs encontrados)
+  GET  /webhook/n8n/vulnerabilidades/existe?cve= -> verifica si un CVE ya existe (evita duplicados)
+
+
+================================================================================
+13. CONFIGURACION Y ENTORNO
+================================================================================
+
+Variables de entorno (via .env):
+  DATABASE_URL            default: postgresql://postgres:postgres@localhost:5435/grupo_x
+  SECRET_KEY              default: change-me-in-production
+  ACCESS_TOKEN_EXPIRE_MINUTES default: 30
+  REFRESH_TOKEN_EXPIRE_DAYS  default: 7
+  CORS_ORIGINS            default: ["http://localhost:5173", "http://127.0.0.1:5173"]
+  N8N_API_KEY             default: change-me-n8n-api-key
+  N8N_WEBHOOK_URL         default: http://localhost:5678/webhook/trigger-nvd-fetch
+  NVD_API_KEY             default: ""
+  LOG_LEVEL               default: "INFO"
+
+Ejecucion:
+  Backend:  uvicorn app.main:app --reload --port 8000
+  Frontend: vite (puerto 5173)
+  Tests:    pytest tests/
+
+Dependencias (requirements.txt):
+  fastapi, uvicorn, sqlalchemy, psycopg2-binary, python-jose, passlib, bcrypt,
+  pydantic, pydantic-settings, slowapi, python-multipart
+
+
+================================================================================
+14. DIAGRAMA DE FLUJO DE AUTENTICACION
+================================================================================
+
+LOGIN:
+  Cliente                    Servidor
+    |                           |
+    |-- POST /auth/login ------->|
+    |   { username, password }   |
+    |                           |-- Verificar password (bcrypt)
+    |                           |-- Verificar active=True
+    |                           |-- Crear access_token (JWT, 30min)
+    |                           |-- Crear refresh_token (JWT + DB, 7dias)
+    |<-- 200 OK -----------------|
+    |   { access_token,          |
+    |     refresh_token, ... }   |
+    |                           |
+    |-- Almacena tokens en      |
+    |   localStorage            |
+
+REQUEST AUTENTICADO:
+    |                           |
+    |-- GET /vulnerabilidades -->|
+    |   Authorization: Bearer   |
+    |   <access_token>          |
+    |                           |-- Decodificar JWT
+    |                           |-- Verificar type="access"
+    |                           |-- Cargar usuario de DB
+    |                           |-- Verificar active=True
+    |                           |-- Verificar token_version coincide
+    |<-- 200 OK -----------------|
+
+REFRESH TOKEN (cuando access_token expira):
+    |                           |
+    |-- POST /auth/refresh ----->|
+    |   { refresh_token }       |
+    |                           |-- Decodificar JWT refresh
+    |                           |-- Buscar en DB (jti, not revoked, not expired)
+    |                           |-- Marcar como revoked=True
+    |                           |-- Crear NUEVO access_token
+    |                           |-- Crear NUEVO refresh_token
+    |<-- 200 OK -----------------|
+    |   { access_token,          |
+    |     refresh_token }        |
+    |                           |
+    |-- Actualiza localStorage  |
+
+LOGOUT:
+    |                           |
+    |-- POST /auth/logout ------>|
+    |   Authorization: Bearer   |
+    |                           |-- Revocar todos los refresh_tokens del user
+    |                           |-- Incrementar token_version
+    |<-- 200 OK -----------------|
+    |                           |
+    (cualquier access_token previo queda invalido)
+
+
+================================================================================
+15. ESTRUCTURA DE ARCHIVOS COMPLETA
+================================================================================
+
+GRUPO-X/
+├── backend/
+│   ├── .venv/
+│   ├── app/
+│   │   ├── __init__.py
+│   │   ├── main.py                  # FastAPI app, middlewares, startup
+│   │   ├── database.py              # engine, SessionLocal, Base, get_db
+│   │   ├── models.py                # SQLAlchemy models (6 tablas + enums)
+│   │   ├── schemas.py               # Pydantic schemas (request/response)
+│   │   ├── auth.py                  # JWT, passwords, refresh tokens
+│   │   ├── seed.py                  # Seed data inicial
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   ├── config.py            # Config via pydantic-settings
+│   │   │   ├── deps.py              # Dependencias: get_current_user, require_role
+│   │   │   ├── exceptions.py        # AppError, handlers globales
+│   │   │   ├── logging.py           # LoggingMiddleware, setup_logging
+│   │   │   └── rate_limit.py        # Instancia compartida de Limiter
+│   │   ├── repositories/
+│   │   │   ├── __init__.py
+│   │   │   ├── user_repository.py
+│   │   │   ├── vulnerability_repository.py
+│   │   │   ├── company_repository.py
+│   │   │   ├── comment_repository.py
+│   │   │   └── history_repository.py
+│   │   ├── services/
+│   │   │   ├── __init__.py
+│   │   │   ├── auth_service.py
+│   │   │   ├── user_service.py
+│   │   │   ├── vulnerability_service.py
+│   │   │   ├── company_service.py
+│   │   │   └── statistics_service.py
+│   │   └── routers/
+│   │       ├── __init__.py
+│   │       ├── auth_router.py
+│   │       ├── user_router.py
+│   │       ├── vulnerability_router.py
+│   │       ├── company_router.py
+│   │       ├── comment_router.py
+│   │       ├── history_router.py
+│   │       ├── statistics_router.py
+│   │       └── n8n_router.py
+│   └── tests/
+│       ├── conftest.py              # Fixtures: db_session, client, tokens
+│       ├── test_auth.py             # 12 tests
+│       ├── test_users.py            # 6 tests
+│       ├── test_vulnerabilities.py   # 10 tests
+│       ├── test_companies.py        # 4 tests
+│       ├── test_comments.py         # 3 tests
+│       ├── test_history.py          # 2 tests
+│       └── test_statistics.py       # 2 tests
+│
+├── frontend/
+│   ├── src/
+│   │   ├── main.tsx
+│   │   ├── App.tsx                  # Componente principal con routing
+│   │   ├── types.ts                 # TypeScript types
+│   │   ├── lib/
+│   │   │   └── api.ts              # Axios client, interceptors, todas las funciones API
+│   │   ├── context/
+│   │   │   └── AuthContext.tsx      # AuthProvider, useAuth hook
+│   │   ├── components/
+│   │   │   ├── Layout.tsx
+│   │   │   ├── ProtectedRoute.tsx
+│   │   │   └── ... (otros componentes UI)
+│   │   └── pages/
+│   │       ├── LoginPage.tsx
+│   │       ├── DashboardPage.tsx
+│   │       ├── VulnerabilitiesPage.tsx
+│   │       ├── VulnerabilityDetailPage.tsx
+│   │       ├── CompaniesPage.tsx
+│   │       ├── CompanyDetailPage.tsx
+│   │       ├── StatisticsPage.tsx
+│   │       ├── TeamPage.tsx
+│   │       ├── TeamDetailPage.tsx
+│   │       └── UsersPage.tsx
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tailwind.config.js
+│
+├── claude.txt                      # Este documento
+└── README.md
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================

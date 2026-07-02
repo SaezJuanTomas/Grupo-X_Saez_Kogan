@@ -2,7 +2,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from ..models import User
+from ..models import User, UserRole
 
 
 class UserRepository:
@@ -19,15 +19,18 @@ class UserRepository:
         return self.db.query(User).filter(User.username == username).first()
 
     def create(self, **kwargs) -> User:
+        if "role" in kwargs and isinstance(kwargs["role"], str):
+            kwargs["role"] = UserRole(kwargs["role"])
         user = User(**kwargs)
         self.db.add(user)
         self.db.flush()
         return user
 
     def update(self, user: User, **kwargs) -> User:
+        if "role" in kwargs and isinstance(kwargs["role"], str):
+            kwargs["role"] = UserRole(kwargs["role"])
         for key, value in kwargs.items():
             setattr(user, key, value)
-        self.db.add(user)
         self.db.flush()
         return user
 
@@ -35,4 +38,4 @@ class UserRepository:
         return self.db.query(User).filter(User.active.is_(True)).count()
 
     def get_first_analyst(self) -> Optional[User]:
-        return self.db.query(User).filter(User.role == "analyst").order_by(User.id.asc()).first()
+        return self.db.query(User).filter(User.role == UserRole.ANALYST).order_by(User.id.asc()).first()

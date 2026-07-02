@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const result = await apiLogin({ username, password })
       setToken(result.access_token)
+      localStorage.setItem('grupo-x-refresh-token', result.refresh_token)
       setError(null)
       const sessionUser: SessionUser = { id: result.user_id, username: result.username, role: result.role as 'admin' | 'analyst' }
       localStorage.setItem('grupo-x-session', JSON.stringify(sessionUser))
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await apiLogout()
     setToken(null)
+    localStorage.removeItem('grupo-x-refresh-token')
     localStorage.removeItem('grupo-x-session')
     setUser(null)
   }, [])

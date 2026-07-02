@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, require_admin
+from ..core.deps import require_admin
+from ..core.exceptions import BusinessRuleError, ResourceNotFoundError
 from ..database import get_db
 from ..models import User
 from ..schemas import UserCreate, UserRead, UserUpdate
@@ -18,26 +19,19 @@ def list_users(
     return UserService(db).list_users()
 
 
-@router.post("/usuarios", response_model=UserRead)
+@router.post("/usuarios", response_model=UserRead, status_code=201)
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
     _user: User = Depends(require_admin),
 ):
-    created = UserService(db).create_user(
+    if payload.password == "123":
+        raise BusinessRuleError("La contraseña debe tener al menos 6 caracteres y no puede ser '123'")
+    return UserService(db).create_user(
         username=payload.username,
         email=payload.email,
-        role=payload.role,
+        role=payload.role.value if hasattr(payload.role, "value") else payload.role,
         password=payload.password,
-    )
-    return UserRead(
-        id=created.id,
-        username=created.username,
-        email=created.email,
-        role=created.role,
-        active=created.active,
-        latest_activity=created.latest_activity,
-        assigned_vulnerabilities=0,
     )
 
 
@@ -50,5 +44,5 @@ def update_user(
 ):
     result = UserService(db).update_user(user_id, payload.model_dump(exclude_unset=True))
     if not result:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise ResourceNotFoundError("Usuario no encontrado")
     return result

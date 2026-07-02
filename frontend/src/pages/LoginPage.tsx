@@ -8,7 +8,7 @@ type LoginPageProps = {
 
 export function LoginPage({ onLogin, error }: LoginPageProps) {
   const [username, setUsername] = useState('admin')
-  const [password, setPassword] = useState('123')
+  const [password, setPassword] = useState('Admin123!')
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -64,8 +64,8 @@ export function LoginPage({ onLogin, error }: LoginPageProps) {
 
           <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
             <p className="font-medium text-slate-800">Credenciales mock</p>
-            <p className="mt-1">admin / 123</p>
-            <p>analyst / 123</p>
+            <p className="mt-1">admin / Admin123!</p>
+            <p>analyst / Analyst123!</p>
           </div>
         </Card>
       </div>

@@ -24,6 +24,5 @@ class CompanyRepository:
     def update(self, company: Company, **kwargs) -> Company:
         for key, value in kwargs.items():
             setattr(company, key, value)
-        self.db.add(company)
         self.db.flush()
         return company

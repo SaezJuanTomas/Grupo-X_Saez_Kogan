@@ -1,0 +1,344 @@
+================================================================================
+  GRUPO X - DOCUMENTO DE ALINEACIÓN CON TESIS
+  Versión 2.0 - Post-refactor
+================================================================================
+
+Este documento describe el estado actual del proyecto backend, frontend,
+automatización e infraestructura, para que puedas verificar que el código
+coincide con lo descrito en el PDF de tu tesis y la presentación.
+
+================================================================================
+1. ARQUITECTURA
+================================================================================
+
+Backend: FastAPI + SQLAlchemy 2.0 + PostgreSQL
+Frontend: React 18 + TypeScript + Vite + TailwindCSS
+Automatización: n8n
+Infraestructura: Docker Compose (PostgreSQL 16 + pgAdmin + n8n)
+
+BASE DE DATOS
+-------------
+- Motor: PostgreSQL 16 (ya NO SQLite)
+- ORM: SQLAlchemy 2.0 con sessionmaker
+- Pool: pool_pre_ping=True para conexiones robustas
+- Tablas: 6 (companies, users, vulnerabilities, comments, history_logs, refresh_tokens)
+- Enums con validación nativa:
+  * UserRole: admin, analyst, viewer
+  * Severity: Crítica, Alta, Media, Baja
+  * VulnerabilityStatus: Pendiente, En progreso, Resuelto, Cerrado
+- Índices en: username, role, active, cve, severity, status, company_id,
+  assigned_analyst_id, created_at, irc, vulnerability_id, author_id,
+  actor_id, jti (refresh_tokens)
+- Relaciones con back_populates y lazy="dynamic" para escalabilidad
+- RefreshToken con JTI único para rotación
+
+ESTRUCTURA DE CAPAS
+-------------------
+Router → Service → Repository → Model
+    ↕
+Core (config, exceptions, logging, deps)
+
+- Routers: Solo manejan HTTP (request/response, status codes, auth)
+- Services: Toda la lógica de negocio
+- Repositories: Acceso a datos (CRUD, queries)
+- Core: Configuración centralizada, exception handlers, logging middleware
+
+================================================================================
+2. AUTENTICACIÓN Y SEGURIDAD
+================================================================================
+
+MECANISMO: JWT con Refresh Token Rotation
+-----------------------------------------
+- Access Token: 30 minutos de expiración
+  * Payload: { sub, role, type: "access", exp }
+- Refresh Token: 7 días de expiración
+  * Payload: { sub, jti, type: "refresh", exp }
+  * Almacenado en tabla refresh_tokens con JTI único
+  * Se revoca (revoked=True) al usarse (rotation)
+  * Si se reusa un token ya revocado → denegado
+- Logout: Revoca TODOS los refresh tokens del usuario
+
+HASHING: bcrypt con passlib
+----------------------------
+- hash_password() / verify_password()
+- 12 rounds por defecto (passlib bcrypt)
+
+RATE LIMITING: SlowAPI
+----------------------
+- Login: 5 intentos cada 15 minutos
+- Middleware SlowAPIMiddleware activado
+- Handler personalizado para RateLimitExceeded
+
+CORS
+----
+- Orígenes configurados desde .env
+- Métodos restringidos: GET, POST, PATCH, DELETE, OPTIONS
+- Headers: Content-Type, Authorization, X-API-Key
+
+RBAC (Roles)
+------------
+- ADMIN: Acceso total
+- ANALYST: Ver vulnerabilidades asignadas, agregar comentarios
+- VIEWER: Solo lectura (futuro)
+- require_admin, require_analyst como dependencias FastAPI
+
+================================================================================
+3. EXCEPTION HANDLERS
+================================================================================
+
+Globales (registrados en register_exception_handlers):
+- AppError → Códigos personalizados
+- HTTPException → Mapeo de códigos HTTP
+- RequestValidationError → 422 con detalle de campos
+- Exception → 500 genérico
+
+Formato de error:
+{
+  "error": {
+    "code": "not_found",
+    "message": "Vulnerabilidad no encontrada"
+  }
+}
+
+Excepciones de dominio:
+- ResourceNotFoundError (404)
+- DuplicateResourceError (409)
+- BusinessRuleError (400)
+- AuthenticationError (401)
+- AuthorizationError (403)
+
+================================================================================
+4. LOGGING Y OBSERVABILIDAD
+================================================================================
+
+LOGGING
+-------
+- Logger "app" con handler a stdout
+- Formato: timestamp | LEVEL | name | message
+- Niveles: INFO por defecto, WARNING para uvicorn y SQLAlchemy
+- Idempotente: se puede llamar setup_logging() múltiples veces
+
+LOGGING MIDDLEWARE (ASGI puro)
+-------------------------------
+- Asigna UUID (request_id) a cada request
+- Log: "-> GET /vulnerabilidades [id=uuid] from=127.0.0.1 ua=..."
+- Log: "<- GET /vulnerabilidades [id=uuid] 200 in 12.3ms"
+- Paths excluidos: /health, /favicon.ico, /docs, /redoc, /openapi.json
+- Headers: X-Request-ID, X-Response-Time-ms en cada respuesta
+
+HEALTH CHECK
+------------
+- GET /health → { status, database, version }
+- Verifica conexión a base de datos
+
+================================================================================
+5. ENDPOINTS DE API
+================================================================================
+
+AUTH
+----
+POST /auth/login          → { access_token, refresh_token, user_id, username, role }
+POST /auth/refresh        → { access_token, refresh_token }
+POST /auth/logout         → { message }
+GET  /auth/me             → { id, username, email, role, active }
+
+VULNERABILIDADES
+----------------
+GET    /vulnerabilidades          → Lista paginada (?page=1&page_size=50&role=&user_id=)
+GET    /vulnerabilidades/{id}     → Detalle
+POST   /vulnerabilidades          → Crear (admin) → 201
+PATCH  /vulnerabilidades/{id}     → Actualizar (admin: status/assign, analyst: otros)
+DELETE /vulnerabilidades/{id}     → Eliminar (admin)
+
+EMPRESAS
+--------
+GET   /empresas            → Lista
+GET   /empresas/{id}       → Detalle
+POST  /empresas             → Crear (admin) → 201
+PATCH /empresas/{id}       → Actualizar (admin)
+
+USUARIOS
+--------
+GET   /usuarios            → Lista (admin)
+POST  /usuarios            → Crear (admin) → 201
+PATCH /usuarios/{id}       → Actualizar (admin)
+
+COMENTARIOS
+-----------
+GET   /comentarios?vulnerability_id=   → Lista
+POST  /vulnerabilidades/{id}/comentarios → Crear → 201
+
+HISTORIAL
+---------
+GET   /historial?vulnerability_id=   → Lista de auditoría
+
+ESTADÍSTICAS
+------------
+GET   /estadisticas                   → DashboardStats
+GET   /estadisticas/tendencias?days=7 → TrendsResponse
+
+N8N WEBHOOKS
+------------
+GET   /webhook/n8n/empresas                       → Lista (x-api-key required)
+POST  /webhook/n8n/vulnerabilidades               → Crear (x-api-key required) → 201
+GET   /webhook/n8n/vulnerabilidades/existe?cve=   → { exists: bool }
+
+HEALTH
+------
+GET   /health → { status, database, version }
+
+================================================================================
+6. n8n - WORKFLOW DE AUTOMATIZACIÓN
+================================================================================
+
+DISPARADORES:
+- Manual: Para testing
+- Schedule: Cada 3 horas
+- Webhook: POST /webhook/trigger-nvd-fetch
+
+FLUJO:
+1. Fetch NVD API → GET https://services.nvd.nist.gov/rest/json/cves/2.0
+2. Extract Fields → CVE, CVSS, description, publishedDate
+3. Filter Completeness → IF con descripción no vacía
+4. Normalize Data → CVSS 0-10, EPSS desde CVSS (realístico, NO random)
+5. Asset Correlation → Keywords con else-if (NO if secuenciales)
+6. Calculate IRC → CVSS*0.4 + EPSS*10*0.4 + AssetCrit*0.2
+7. Detect Critical → IF irc >= 7.5
+8. Severity Marking → Crítica / Alta / Media / Baja
+9. Idempotency Check → GET /webhook/n8n/vulnerabilidades/existe?cve=
+10. Skip if Exists → IF exists == false
+11. Assign Analyst → Company matching por tecnologías, analyst por severity
+12. POST to FastAPI → CREATE vulnerable
+13. Generate Summary → success/skipped/error counts
+
+MEJORAS SOBRE VERSIÓN ANTERIOR:
+- EPSS realístico (NO Math.random() puro)
+- else-if en correlación (NO bugs de overwrite)
+- Idempotencia (NO duplicados)
+- Manejo de errores y timeouts
+- Jitter en schedule (reduce thundering herd)
+
+================================================================================
+7. DOCKER
+================================================================================
+
+docker-compose.yml levanta:
+- postgres:16-alpine (puerto 5435, healthcheck)
+- pgadmin:latest (puerto 5050)
+- n8n:1.70.0 (puerto 5678, métricas activadas)
+
+Volúmenes persistentes:
+- postgres_data
+- n8n_data
+
+================================================================================
+8. FRONTEND
+================================================================================
+
+API: Axios con interceptor que:
+- Añade token JWT a cada request
+- Maneja refresh token automático en 401
+- Queue de requests pendientes durante refresh
+
+AUTH CONTEXT:
+- Store de sesión en localStorage
+- Refresh token almacenado para renovación
+- Logout revoca tokens en backend
+
+PÁGINAS:
+- LoginPage: Login con credenciales mock
+- DashboardPage: KPIs para admin y analyst
+- VulnerabilitiesPage: Lista con filtros
+- VulnerabilityDetailPage: Detalle, comentarios, historial
+- CompaniesPage/CompanyDetailPage: CRUD empresas
+- UsersPage/TeamPage/TeamDetailPage: CRUD usuarios
+- StatisticsPage: Gráficos y métricas
+
+================================================================================
+9. CREDENCIALES DE PRUEBA
+================================================================================
+
+Usuario    | Rol     | Contraseña
+-----------+---------+------------
+admin      | admin   | Admin123!
+analyst    | analyst | Analyst123!
+juan       | analyst | Juan123!
+maria      | analyst | Maria123! (inactivo)
+
+================================================================================
+10. CORRESPONDENCIA CON PRESENTACIÓN
+================================================================================
+
+TEMA                              | ESTADO | NOTAS
+----------------------------------+--------+------
+Arquitectura 3 capas              | ✅ OK  | Router/Service/Repository
+Autenticación JWT                 | ✅ OK  | + refresh rotation
+bcrypt en passwords               | ✅ OK  | passlib + bcrypt
+Rate limiting                     | ✅ OK  | SlowAPI
+RBAC (admin/analyst)              | ✅ OK  | + viewer
+n8n workflow                      | ✅ OK  | Refactorizado con EPSS real
+IRC (0-10)                        | ✅ OK  | Fórmula CVSS*0.4+EPSS*0.4+AssetCrit*0.2
+Correlación de activos            | ✅ OK  | else-if fix aplicado
+Auditoría (HistoryLog)            | ✅ OK  | + ip_address
+Dashboard stats                   | ✅ OK  | Queries agregadas
+PostgreSQL                        | ✅ OK  | Migrado desde SQLite
+Docker Compose                    | ✅ OK  | PostgreSQL + n8n + pgAdmin
+Logging estructurado              | ✅ OK  | Correlation ID
+Exception handlers                | ✅ OK  | Globales con formato consistente
+Paginación                        | ✅ OK  | page/page_size
+Enums validados                   | ✅ OK  | Pydantic + SQLAlchemy
+Refresh token rotation            | ✅ OK  | JTI, revocación
+Testing (30+ tests)               | ✅ OK  | Integración + unitarios
+Documentación docs/               | ✅ OK  | README + N8N guides
+
+DIFERENCIAS CON PRESENTACIÓN ORIGINAL:
+- IRC: Presentación dice 0-100, código usa 0-10 (consistente con CVSS)
+- Login: Presentación dice "email + password", código usa "username + password"
+- Estados: Presentación dice "Detectada/En Análisis/Remediada", código usa
+  "Pendiente/En progreso/Resuelto/Cerrado" (Enums)
+- Soft delete: Presentación lo menciona, no implementado en código
+  (se recomienda agregar deleted_at a modelos principales)
+- Fórmula IRC presentación: CVSS*0.6 + EnvFactor*0.3 + TempScore*0.1 + CorrWeight*0.05
+- Fórmula IRC código: CVSS*0.4 + EPSS*10*0.4 + AssetCrit*0.2
+  (Justificación: EPSS reemplaza Environmental/Temporal Score como mejor proxy)
+
+RECOMENDACIÓN: Actualizar la fórmula IRC en la presentación para que coincida
+con la implementada. La fórmula actual es más realista porque usa EPSS (exploit
+prediction) en lugar de factores ambientales que requieren datos difíciles de obtener.
+
+================================================================================
+11. CAMBIOS REALIZADOS (CHANGELOG)
+================================================================================
+
+v1.0 → v2.0:
+- SQLite → PostgreSQL 16
+- Agregado: core/config.py (Pydantic Settings con .env)
+- Agregado: core/exceptions.py (Exception handlers globales)
+- Agregado: core/logging.py (Logging middleware con correlation ID)
+- Agregado: core/deps.py (Dependencias FastAPI reutilizables)
+- Agregado: __init__.py en app/
+- Agregado: Refresh token rotation con tabla refresh_tokens
+- Agregado: Rate limiting con SlowAPI (5/15min en login)
+- Agregado: Paginación en listado de vulnerabilidades
+- Agregado: Índices en todos los campos de búsqueda/filtro
+- Agregado: Enums Python para roles, severidad y estados
+- Agregado: Validación Pydantic v2 robusta (EmailStr, min/max, patterns)
+- Agregado: Endpoint /auth/me, /auth/refresh
+- Agregado: Docker Compose completo con PostgreSQL + pgAdmin + n8n
+- Agregado: .env.example con todas las configuraciones
+- Agregado: docs/N8N_IMPLEMENTATION_SUMMARY.md
+- Agregado: docs/N8N_WORKFLOW_GUIDE.md
+- Agregado: Tests de refresh token, paginación, validación, roles
+- Actualizado: /health ahora verifica DB
+- Actualizado: n8n workflow con EPSS realístico, else-if, idempotencia
+- Actualizado: LoginPage con credenciales reales de seed
+- Actualizado: Frontend api.ts con refresh token interceptor automático
+- Actualizado: README.md profesional y completo
+- Eliminado: Password default "123" de schemas
+- Eliminado: Secrets hardcodeados
+- Eliminado: Threading manual en CompanyService
+- Eliminado: Contradicciones entre documentación y código
+
+================================================================================
+FIN DEL DOCUMENTO
+================================================================================
