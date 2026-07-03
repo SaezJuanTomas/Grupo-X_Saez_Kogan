@@ -1,3 +1,5 @@
+from app.core.config import config
+
 from .conftest import auth_header
 
 
@@ -59,6 +61,53 @@ class TestVulnerabilities:
         }
         resp = client.post("/vulnerabilidades", json=payload, headers=auth_header(admin_token))
         assert resp.status_code == 422
+
+    def test_create_duplicate_vulnerability_same_company_forbidden(self, client, admin_token):
+        payload = {
+            "cve": "CVE-2025-DUP-COMPANY",
+            "description": "Test duplicate vulnerability for same company",
+            "irc": 7.5,
+            "severity": "Alta",
+            "status": "Pendiente",
+            "company_id": 1,
+        }
+
+        first = client.post("/vulnerabilidades", json=payload, headers=auth_header(admin_token))
+        assert first.status_code == 201
+
+        second = client.post("/vulnerabilidades", json=payload, headers=auth_header(admin_token))
+        assert second.status_code == 409
+
+    def test_webhook_exists_check_is_scoped_by_company(self, client, admin_token):
+        payload = {
+            "cve": "CVE-2025-SCOPED",
+            "description": "Test duplicate scope by company",
+            "irc": 6.0,
+            "severity": "Media",
+            "status": "Pendiente",
+            "company_id": 1,
+        }
+
+        created = client.post("/vulnerabilidades", json=payload, headers=auth_header(admin_token))
+        assert created.status_code == 201
+
+        webhook_headers = {"x-api-key": config.N8N_API_KEY}
+
+        same_company = client.get(
+            "/webhook/n8n/vulnerabilidades/existe",
+            params={"cve": "CVE-2025-SCOPED", "company_id": 1},
+            headers=webhook_headers,
+        )
+        assert same_company.status_code == 200
+        assert same_company.json()["exists"] is True
+
+        other_company = client.get(
+            "/webhook/n8n/vulnerabilidades/existe",
+            params={"cve": "CVE-2025-SCOPED", "company_id": 2},
+            headers=webhook_headers,
+        )
+        assert other_company.status_code == 200
+        assert other_company.json()["exists"] is False
 
     def test_delete_vulnerability(self, client, admin_token):
         resp = client.delete("/vulnerabilidades/1", headers=auth_header(admin_token))

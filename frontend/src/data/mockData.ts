@@ -13,11 +13,11 @@ export const mockUsers: User[] = [
 ]
 
 export const mockCompanies: CompanySummary[] = [
-  { id: 1, name: 'Saez Logistics', sector: 'Logistica', contact: 'ciso@saezlogistics.local', technologies: ['Linux', 'Apache', 'Python', 'PostgreSQL', 'Docker'], assigned_analyst_id: 2 },
-  { id: 2, name: 'Kogan Health', sector: 'Salud', contact: 'security@koganhealth.local', technologies: ['Windows Server', 'SQL Server', 'C#', '.NET', 'Active Directory'], assigned_analyst_id: 3 },
-  { id: 3, name: 'Grupo X Retail', sector: 'Comercio', contact: 'it@grupoxretail.local', technologies: ['Nginx', 'Linux', 'MySQL', 'PHP', 'WordPress', 'Node.js', 'Tomcat'], assigned_analyst_id: 2 },
-  { id: 4, name: 'TechFlow SA', sector: 'Fintech', contact: 'security@techflow.local', technologies: ['Kubernetes', 'Go', 'Redis', 'PostgreSQL', 'React'], assigned_analyst_id: 3 },
-  { id: 5, name: 'CloudPress', sector: 'Medios', contact: 'it@cloudpress.local', technologies: ['Nginx', 'WordPress', 'MySQL', 'Apache', 'PHP', 'Redis'], assigned_analyst_id: 2 },
+  { id: 1, name: 'Saez Logistics', sector: 'Logistica', contact: 'ciso@saezlogistics.local', technologies: ['Linux', 'Apache', 'Python', 'PostgreSQL', 'Docker'], assigned_analyst_id: 2, is_active: true },
+  { id: 2, name: 'Kogan Health', sector: 'Salud', contact: 'security@koganhealth.local', technologies: ['Windows Server', 'SQL Server', 'C#', '.NET', 'Active Directory'], assigned_analyst_id: 3, is_active: true },
+  { id: 3, name: 'Grupo X Retail', sector: 'Comercio', contact: 'it@grupoxretail.local', technologies: ['Nginx', 'Linux', 'MySQL', 'PHP', 'WordPress', 'Node.js', 'Tomcat'], assigned_analyst_id: 2, is_active: true },
+  { id: 4, name: 'TechFlow SA', sector: 'Fintech', contact: 'security@techflow.local', technologies: ['Kubernetes', 'Go', 'Redis', 'PostgreSQL', 'React'], assigned_analyst_id: 3, is_active: true },
+  { id: 5, name: 'CloudPress', sector: 'Medios', contact: 'it@cloudpress.local', technologies: ['Nginx', 'WordPress', 'MySQL', 'Apache', 'PHP', 'Redis'], assigned_analyst_id: 2, is_active: true },
 ]
 
 export const mockVulnerabilities: Vulnerability[] = [
@@ -33,7 +33,7 @@ export const mockVulnerabilities: Vulnerability[] = [
     assigned_analyst_id: 2,
     created_at: '2026-05-07T10:00:00Z',
     updated_at: '2026-05-10T10:00:00Z',
-    company: { id: 1, name: 'Saez Logistics', sector: 'Logistica', contact: 'ciso@saezlogistics.local', technologies: ['Linux', 'Apache', 'Python', 'PostgreSQL', 'Docker'] },
+    company: { id: 1, name: 'Saez Logistics', sector: 'Logistica', contact: 'ciso@saezlogistics.local', technologies: ['Linux', 'Apache', 'Python', 'PostgreSQL', 'Docker'], is_active: true },
   },
   {
     id: 2,
@@ -47,7 +47,7 @@ export const mockVulnerabilities: Vulnerability[] = [
     assigned_analyst_id: 3,
     created_at: '2026-05-05T10:00:00Z',
     updated_at: '2026-05-10T22:00:00Z',
-    company: { id: 2, name: 'Kogan Health', sector: 'Salud', contact: 'security@koganhealth.local', technologies: ['Windows Server', 'SQL Server', 'C#', '.NET', 'Active Directory'] },
+    company: { id: 2, name: 'Kogan Health', sector: 'Salud', contact: 'security@koganhealth.local', technologies: ['Windows Server', 'SQL Server', 'C#', '.NET', 'Active Directory'], is_active: true },
   },
   {
     id: 3,
@@ -61,7 +61,7 @@ export const mockVulnerabilities: Vulnerability[] = [
     assigned_analyst_id: 2,
     created_at: '2026-05-02T10:00:00Z',
     updated_at: '2026-05-09T10:00:00Z',
-    company: { id: 3, name: 'Grupo X Retail', sector: 'Comercio', contact: 'it@grupoxretail.local', technologies: ['Nginx', 'Linux', 'MySQL', 'PHP', 'WordPress', 'Node.js'] },
+    company: { id: 3, name: 'Grupo X Retail', sector: 'Comercio', contact: 'it@grupoxretail.local', technologies: ['Nginx', 'Linux', 'MySQL', 'PHP', 'WordPress', 'Node.js'], is_active: true },
   },
   {
     id: 4,
@@ -75,7 +75,7 @@ export const mockVulnerabilities: Vulnerability[] = [
     assigned_analyst_id: 3,
     created_at: '2026-05-08T10:00:00Z',
     updated_at: '2026-05-10T14:00:00Z',
-    company: { id: 1, name: 'Saez Logistics', sector: 'Logistica', contact: 'ciso@saezlogistics.local', technologies: ['Linux', 'Apache', 'Python', 'PostgreSQL', 'Docker'] },
+    company: { id: 1, name: 'Saez Logistics', sector: 'Logistica', contact: 'ciso@saezlogistics.local', technologies: ['Linux', 'Apache', 'Python', 'PostgreSQL', 'Docker'], is_active: true },
   },
   {
     id: 5,
@@ -89,7 +89,7 @@ export const mockVulnerabilities: Vulnerability[] = [
     assigned_analyst_id: 3,
     created_at: '2026-05-11T08:00:00Z',
     updated_at: '2026-05-11T08:00:00Z',
-    company: { id: 4, name: 'TechFlow SA', sector: 'Fintech', contact: 'security@techflow.local', technologies: ['Kubernetes', 'Go', 'Redis', 'PostgreSQL', 'React'] },
+    company: { id: 4, name: 'TechFlow SA', sector: 'Fintech', contact: 'security@techflow.local', technologies: ['Kubernetes', 'Go', 'Redis', 'PostgreSQL', 'React'], is_active: true },
   },
   {
     id: 6,
@@ -103,7 +103,7 @@ export const mockVulnerabilities: Vulnerability[] = [
     assigned_analyst_id: 2,
     created_at: '2026-05-11T09:00:00Z',
     updated_at: '2026-05-11T09:00:00Z',
-    company: { id: 5, name: 'CloudPress', sector: 'Medios', contact: 'it@cloudpress.local', technologies: ['Nginx', 'WordPress', 'MySQL', 'Apache', 'PHP', 'Redis'] },
+    company: { id: 5, name: 'CloudPress', sector: 'Medios', contact: 'it@cloudpress.local', technologies: ['Nginx', 'WordPress', 'MySQL', 'Apache', 'PHP', 'Redis'], is_active: true },
   },
 ]
 

@@ -17,6 +17,7 @@ export type Company = {
   contact: string
   technologies: string[]
   assigned_analyst_id?: number | null
+  is_active?: boolean
 }
 
 export type Vulnerability = {

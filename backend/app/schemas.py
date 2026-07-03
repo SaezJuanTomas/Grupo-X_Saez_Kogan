@@ -12,6 +12,7 @@ class CompanyBase(BaseModel):
     contact: str = Field(..., min_length=1, max_length=255)
     technologies: list[str] = Field(default_factory=list)
     assigned_analyst_id: Optional[int] = None
+    is_active: bool = True
 
 
 class CompanyRead(CompanyBase):
@@ -27,6 +28,7 @@ class CompanyUpdate(BaseModel):
     contact: Optional[str] = Field(None, min_length=1, max_length=255)
     technologies: Optional[list[str]] = None
     assigned_analyst_id: Optional[int] = None
+    is_active: Optional[bool] = None
 
 
 class UserBase(BaseModel):

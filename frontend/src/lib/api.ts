@@ -96,8 +96,10 @@ export async function getUsers(): Promise<User[]> {
   return data
 }
 
-export async function getCompanies(): Promise<CompanySummary[]> {
-  const { data } = await http.get<CompanySummary[]>('/empresas')
+export async function getCompanies(includeInactive?: boolean): Promise<CompanySummary[]> {
+  const params: Record<string, string> = {}
+  if (includeInactive) params.include_inactive = 'true'
+  const { data } = await http.get<CompanySummary[]>('/empresas', { params })
   return data
 }
 
@@ -113,6 +115,16 @@ export async function createCompany(payload: { name: string; sector: string; con
 
 export async function updateCompany(id: number, payload: Partial<Omit<CompanySummary, 'id'>>): Promise<CompanySummary> {
   const { data } = await http.patch<CompanySummary>(`/empresas/${id}`, payload)
+  return data
+}
+
+export async function softDeleteCompany(id: number): Promise<CompanySummary> {
+  const { data } = await http.patch<CompanySummary>(`/empresas/${id}/desactivar`)
+  return data
+}
+
+export async function reactivateCompany(id: number): Promise<CompanySummary> {
+  const { data } = await http.patch<CompanySummary>(`/empresas/${id}/reactivar`)
   return data
 }
 

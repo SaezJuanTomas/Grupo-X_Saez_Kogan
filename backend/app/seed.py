@@ -20,11 +20,11 @@ def seed_database(db: Session) -> None:
     db.flush()
 
     companies = [
-        Company(name="Saez Logistics", sector="Logistica", contact="ciso@saezlogistics.local", technologies=["Linux", "Apache", "Python", "PostgreSQL", "Docker"], assigned_analyst_id=2),
-        Company(name="Kogan Health", sector="Salud", contact="security@koganhealth.local", technologies=["Windows Server", "SQL Server", "C#", ".NET", "Active Directory"], assigned_analyst_id=3),
-        Company(name="Grupo X Retail", sector="Comercio", contact="it@grupoxretail.local", technologies=["Nginx", "Linux", "MySQL", "PHP", "WordPress", "Node.js", "Tomcat"], assigned_analyst_id=2),
-        Company(name="TechFlow SA", sector="Fintech", contact="security@techflow.local", technologies=["Kubernetes", "Go", "Redis", "PostgreSQL", "React"], assigned_analyst_id=3),
-        Company(name="CloudPress", sector="Medios", contact="it@cloudpress.local", technologies=["Nginx", "WordPress", "MySQL", "Apache", "PHP", "Redis"], assigned_analyst_id=2),
+        Company(name="Saez Logistics", sector="Logistica", contact="ciso@saezlogistics.local", technologies=["Linux", "Apache", "Python", "PostgreSQL", "Docker"], assigned_analyst_id=2, is_active=True),
+        Company(name="Kogan Health", sector="Salud", contact="security@koganhealth.local", technologies=["Windows Server", "SQL Server", "C#", ".NET", "Active Directory"], assigned_analyst_id=3, is_active=True),
+        Company(name="Grupo X Retail", sector="Comercio", contact="it@grupoxretail.local", technologies=["Nginx", "Linux", "MySQL", "PHP", "WordPress", "Node.js", "Tomcat"], assigned_analyst_id=2, is_active=True),
+        Company(name="TechFlow SA", sector="Fintech", contact="security@techflow.local", technologies=["Kubernetes", "Go", "Redis", "PostgreSQL", "React"], assigned_analyst_id=3, is_active=True),
+        Company(name="CloudPress", sector="Medios", contact="it@cloudpress.local", technologies=["Nginx", "WordPress", "MySQL", "Apache", "PHP", "Redis"], assigned_analyst_id=2, is_active=True),
     ]
     db.add_all(companies)
     db.flush()

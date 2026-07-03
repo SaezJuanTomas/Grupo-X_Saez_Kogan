@@ -8,6 +8,12 @@ class TestCompanies:
         data = resp.json()
         assert len(data) == 5
 
+    def test_list_companies_includes_inactive(self, client, admin_token):
+        resp = client.get("/empresas?include_inactive=true", headers=auth_header(admin_token))
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) >= 5
+
     def test_create_company(self, client, admin_token):
         payload = {
             "name": "Test Corp",
@@ -26,3 +32,14 @@ class TestCompanies:
     def test_get_nonexistent_company(self, client, admin_token):
         resp = client.get("/empresas/9999", headers=auth_header(admin_token))
         assert resp.status_code == 404
+
+    def test_soft_delete_company(self, client, admin_token):
+        resp = client.patch("/empresas/1/desactivar", headers=auth_header(admin_token))
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is False
+
+    def test_reactivate_company(self, client, admin_token):
+        client.patch("/empresas/1/desactivar", headers=auth_header(admin_token))
+        resp = client.patch("/empresas/1/reactivar", headers=auth_header(admin_token))
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is True

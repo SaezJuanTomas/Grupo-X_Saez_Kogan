@@ -13,7 +13,7 @@ import { CompaniesPage } from './pages/CompaniesPage'
 import { CompanyDetailPage } from './pages/CompanyDetailPage'
 import { VulnerabilitiesPage } from './pages/VulnerabilitiesPage'
 import { VulnerabilityDetailPage } from './pages/VulnerabilityDetailPage'
-import { createCompany as createCompanyRequest, createUser as createUserRequest, createVulnerability as createVulnerabilityRequest, deleteVulnerability as deleteVulnerabilityRequest, getComments, getCompanies, getHistory, getStats, getUsers, getVulnerabilities, updateUser as updateUserRequest, updateVulnerability as updateVulnerabilityRequest } from './lib/api'
+import { createCompany as createCompanyRequest, createUser as createUserRequest, createVulnerability as createVulnerabilityRequest, deleteVulnerability as deleteVulnerabilityRequest, getComments, getCompanies, getHistory, getStats, getUsers, getVulnerabilities, reactivateCompany as reactivateCompanyRequest, softDeleteCompany as softDeleteCompanyRequest, updateUser as updateUserRequest, updateVulnerability as updateVulnerabilityRequest } from './lib/api'
 import type { Comment, CompanySummary, DashboardStats, HistoryLog, User, Vulnerability } from './types'
 
 type Store = {
@@ -48,11 +48,12 @@ export function App() {
     let mounted = true
 
     async function fetchData() {
-      setLoading(true)
+      const isInitialLoad = store.companies.length === 0
+      if (isInitialLoad) setLoading(true)
       try {
         const [users, companies, vulnerabilities, stats] = await Promise.all([
           currentUser.role === 'admin' ? getUsers() : Promise.resolve([] as User[]),
-          getCompanies(),
+          getCompanies(true),
           getVulnerabilities(currentUser.role, currentUser.role === 'analyst' ? currentUser.id : undefined),
           getStats(),
         ])
@@ -135,13 +136,12 @@ export function App() {
     })
   }
 
-  function updateVulnerability(id: number, payload: Partial<Vulnerability>) {
-    void updateVulnerabilityRequest(id, payload).then((updatedVulnerability) => {
-      setStore((current) => ({
-        ...current,
-        vulnerabilities: current.vulnerabilities.map((item) => (item.id === id ? updatedVulnerability : item)),
-      }))
-    })
+  async function updateVulnerability(id: number, payload: Partial<Vulnerability>) {
+    const updatedVulnerability = await updateVulnerabilityRequest(id, payload)
+    setStore((current) => ({
+      ...current,
+      vulnerabilities: current.vulnerabilities.map((item) => (item.id === id ? updatedVulnerability : item)),
+    }))
   }
 
   function handleDeleteVulnerability(id: number) {
@@ -149,6 +149,24 @@ export function App() {
       setStore((current) => ({
         ...current,
         vulnerabilities: current.vulnerabilities.filter((item) => item.id !== id),
+      }))
+    })
+  }
+
+  function handleSoftDeleteCompany(id: number) {
+    void softDeleteCompanyRequest(id).then((updatedCompany) => {
+      setStore((current) => ({
+        ...current,
+        companies: current.companies.map((item) => (item.id === id ? updatedCompany : item)),
+      }))
+    })
+  }
+
+  function handleReactivateCompany(id: number) {
+    void reactivateCompanyRequest(id).then((updatedCompany) => {
+      setStore((current) => ({
+        ...current,
+        companies: current.companies.map((item) => (item.id === id ? updatedCompany : item)),
       }))
     })
   }
@@ -163,15 +181,15 @@ export function App() {
 
   return (
     <Layout sessionUser={sessionUser} onLogout={handleLogout}>
-      {loading ? <div className="mb-4 rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-soft">Cargando datos...</div> : null}
+      {loading && store.companies.length === 0 ? <div className="mb-4 rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-soft">Cargando datos...</div> : null}
       {error ? <div className="mb-4 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 shadow-soft">{error}</div> : null}
       <Routes>
         <Route path="/" element={<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />} />
         <Route path="/inicio" element={<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />} />
-        <Route path="/vulnerabilidades" element={<VulnerabilitiesPage role={sessionUser.role} sessionUserId={sessionUser.id} users={store.users} companies={store.companies} vulnerabilities={store.vulnerabilities} onCreateVulnerability={createVulnerability} onDeleteVulnerability={handleDeleteVulnerability} />} />
+        <Route path="/vulnerabilidades" element={<VulnerabilitiesPage role={sessionUser.role} sessionUserId={sessionUser.id} users={store.users} companies={store.companies.filter((c) => c.is_active !== false)} vulnerabilities={store.vulnerabilities} onCreateVulnerability={createVulnerability} onDeleteVulnerability={handleDeleteVulnerability} />} />
         <Route path="/vulnerabilidades/:id" element={<VulnerabilityDetailPage role={sessionUser.role} sessionUser={{ id: sessionUser.id, username: sessionUser.username, email: '', role: sessionUser.role, active: true, latest_activity: '' }} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateVulnerability={updateVulnerability} />} />
-        <Route path="/empresas" element={<ProtectedRoute requiredRole="admin"><CompaniesPage companies={store.companies} users={store.users} onCreateCompany={createCompany} /></ProtectedRoute>} />
-        <Route path="/empresas/:id" element={<ProtectedRoute requiredRole="admin"><CompanyDetailPage companies={store.companies} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateCompany={updateCompany} /></ProtectedRoute>} />
+        <Route path="/empresas" element={<ProtectedRoute requiredRole="admin"><CompaniesPage companies={store.companies} users={store.users} vulnerabilities={store.vulnerabilities} onCreateCompany={createCompany} onSoftDeleteCompany={handleSoftDeleteCompany} onReactivateCompany={handleReactivateCompany} /></ProtectedRoute>} />
+        <Route path="/empresas/:id" element={<ProtectedRoute requiredRole="admin"><CompanyDetailPage companies={store.companies.filter((c) => c.is_active !== false)} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateCompany={updateCompany} /></ProtectedRoute>} />
         <Route path="/estadisticas" element={<ProtectedRoute requiredRole="admin"><StatisticsPage stats={store.stats || emptyStats} /></ProtectedRoute>} />
         <Route path="/equipo" element={<ProtectedRoute requiredRole="admin"><TeamPage users={store.users} /></ProtectedRoute>} />
         <Route path="/equipo/:id" element={<ProtectedRoute requiredRole="admin"><TeamDetailPage users={store.users} vulnerabilities={store.vulnerabilities} /></ProtectedRoute>} />

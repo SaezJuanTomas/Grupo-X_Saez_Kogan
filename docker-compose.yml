@@ -44,6 +44,7 @@ services:
     volumes:
       - n8n_data:/home/node/.n8n
       - ./n8n_workflow.json:/home/node/.n8n/workflows/grupo-x-nvd.json
+      - ./n8n_workflow_seed.json:/home/node/.n8n/workflows/grupo-x-seed.json
     depends_on:
       postgres:
         condition: service_healthy

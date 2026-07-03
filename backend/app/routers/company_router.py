@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from ..core.deps import get_current_user, require_admin
@@ -13,10 +13,11 @@ router = APIRouter(tags=["companies"])
 
 @router.get("/empresas", response_model=list[CompanyRead])
 def list_companies(
+    include_inactive: bool = Query(False, alias="include_inactive"),
     db: Session = Depends(get_db),
     _user: User = Depends(get_current_user),
 ):
-    return CompanyService(db).list_companies()
+    return CompanyService(db).list_companies(include_inactive=include_inactive)
 
 
 @router.get("/empresas/{company_id}", response_model=CompanyRead)
@@ -48,6 +49,30 @@ def update_company(
     _user: User = Depends(require_admin),
 ):
     company = CompanyService(db).update_company(company_id, payload.model_dump(exclude_unset=True))
+    if not company:
+        raise ResourceNotFoundError("Empresa no encontrada")
+    return company
+
+
+@router.patch("/empresas/{company_id}/desactivar", response_model=CompanyRead)
+def deactivate_company(
+    company_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    company = CompanyService(db).soft_delete_company(company_id)
+    if not company:
+        raise ResourceNotFoundError("Empresa no encontrada")
+    return company
+
+
+@router.patch("/empresas/{company_id}/reactivar", response_model=CompanyRead)
+def reactivate_company(
+    company_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(require_admin),
+):
+    company = CompanyService(db).reactivate_company(company_id)
     if not company:
         raise ResourceNotFoundError("Empresa no encontrada")
     return company

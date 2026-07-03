@@ -20,7 +20,7 @@ def webhook_list_companies(
     db: Session = Depends(get_db),
     _verified: None = Depends(verify_n8n_key),
 ):
-    return CompanyRepository(db).list_all()
+    return CompanyRepository(db).list_all(include_inactive=False)
 
 
 @router.post("/vulnerabilidades", response_model=VulnerabilityRead, status_code=201)
@@ -35,9 +35,11 @@ def webhook_create_vulnerability(
 @router.get("/vulnerabilidades/existe")
 def webhook_check_cve_exists(
     cve: str,
+    company_id: int | None = None,
     db: Session = Depends(get_db),
     _verified: None = Depends(verify_n8n_key),
 ):
     from ..repositories.vulnerability_repository import VulnerabilityRepository
-    exists = VulnerabilityRepository(db).get_by_cve(cve)
+    repo = VulnerabilityRepository(db)
+    exists = repo.get_by_cve_and_company(cve, company_id) if company_id is not None else repo.get_by_cve(cve)
     return {"exists": exists is not None}

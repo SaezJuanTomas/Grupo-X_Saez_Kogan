@@ -32,13 +32,14 @@ class CompanyService:
         self.company_repo = CompanyRepository(db)
         self.user_repo = UserRepository(db)
 
-    def list_companies(self) -> list[Company]:
-        return self.company_repo.list_all()
+    def list_companies(self, include_inactive: bool = False) -> list[Company]:
+        return self.company_repo.list_all(include_inactive=include_inactive)
 
     def get_company(self, company_id: int) -> Optional[Company]:
         return self.company_repo.get_by_id(company_id)
 
     def create_company(self, **kwargs) -> Company:
+        kwargs.pop("is_active", None)
         if kwargs.get("assigned_analyst_id") is None:
             default_analyst = self.user_repo.get_first_analyst()
             kwargs["assigned_analyst_id"] = default_analyst.id if default_analyst else None
@@ -55,3 +56,15 @@ class CompanyService:
             return None
         self.company_repo.update(company, **changes)
         return company
+
+    def soft_delete_company(self, company_id: int) -> Optional[Company]:
+        company = self.company_repo.get_by_id(company_id)
+        if not company:
+            return None
+        return self.company_repo.soft_delete(company)
+
+    def reactivate_company(self, company_id: int) -> Optional[Company]:
+        company = self.company_repo.get_by_id(company_id)
+        if not company:
+            return None
+        return self.company_repo.reactivate(company)
