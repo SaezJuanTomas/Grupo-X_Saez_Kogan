@@ -70,8 +70,18 @@ class Vulnerability(Base):
     cve = Column(String(50), nullable=False, index=True)
     description = Column(Text, nullable=False)
     affected_technology = Column(String(255), nullable=True)
-    irc = Column(Float, nullable=False)
-    severity = Column(Enum(Severity), nullable=False, index=True)
+    cvss = Column(Float, nullable=True)
+    cvss_vector = Column(String(255), nullable=True)
+    epss = Column(Float, nullable=True)
+    epss_date = Column(String(20), nullable=True)
+    epss_percentile = Column(Float, nullable=True)
+    asset_criticality = Column(Integer, nullable=True)
+    epss_source = Column(String(50), nullable=True)
+    published_date = Column(String(30), nullable=True)
+    processing_status = Column(String(30), nullable=True, default="success")
+    error_reason = Column(String(500), nullable=True)
+    irc = Column(Float, nullable=True)
+    severity = Column(Enum(Severity), nullable=True, index=True)
     status = Column(Enum(VulnerabilityStatus), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
     assigned_analyst_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
@@ -115,6 +125,28 @@ class HistoryLog(Base):
 
     vulnerability = relationship("Vulnerability", back_populates="history_logs")
     actor = relationship("User", back_populates="history_logs")
+
+
+class VulnerabilityIngestionLog(Base):
+    """Registro de trazabilidad de deteccion (Tarea 1).
+
+    Por cada CVE nuevo ingresado se guarda el timestamp de publicacion
+    reportado por la API de NVD y el timestamp real de insercion en la
+    base de datos, para calcular el tiempo de deteccion.
+    """
+
+    __tablename__ = "vulnerability_ingestion_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    vulnerability_id = Column(Integer, ForeignKey("vulnerabilities.id"), nullable=False, index=True)
+    cve = Column(String(50), nullable=False, index=True)
+    nvd_published_at = Column(DateTime, nullable=True)
+    inserted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    detection_delta_seconds = Column(Integer, nullable=True)
+    source = Column(String(20), nullable=False, default="api")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    vulnerability = relationship("Vulnerability")
 
 
 class RefreshToken(Base):

@@ -62,8 +62,18 @@ class VulnerabilityBase(BaseModel):
     cve: str = Field(..., min_length=1, max_length=50)
     description: str = Field(..., min_length=1, max_length=5000)
     affected_technology: Optional[str] = Field(None, max_length=255)
-    irc: float = Field(..., ge=0, le=10)
-    severity: Severity
+    cvss: Optional[float] = Field(None, ge=0, le=10)
+    cvss_vector: Optional[str] = Field(None, max_length=255)
+    epss: Optional[float] = Field(None, ge=0, le=1)
+    epss_date: Optional[str] = Field(None, max_length=20)
+    epss_percentile: Optional[float] = Field(None, ge=0, le=1)
+    asset_criticality: Optional[int] = Field(None, ge=0, le=10)
+    epss_source: Optional[str] = Field(None, max_length=50)
+    published_date: Optional[str] = Field(None, max_length=30)
+    processing_status: Optional[str] = Field(None, max_length=30)
+    error_reason: Optional[str] = Field(None, max_length=500)
+    irc: Optional[float] = Field(None, ge=0, le=10)
+    severity: Optional[Severity] = None
     status: VulnerabilityStatus
     company_id: int = Field(..., gt=0)
     assigned_analyst_id: Optional[int] = None
@@ -77,6 +87,16 @@ class VulnerabilityUpdate(BaseModel):
     cve: Optional[str] = Field(None, min_length=1, max_length=50)
     description: Optional[str] = Field(None, min_length=1, max_length=5000)
     affected_technology: Optional[str] = Field(None, max_length=255)
+    cvss: Optional[float] = Field(None, ge=0, le=10)
+    cvss_vector: Optional[str] = Field(None, max_length=255)
+    epss: Optional[float] = Field(None, ge=0, le=1)
+    epss_date: Optional[str] = Field(None, max_length=20)
+    epss_percentile: Optional[float] = Field(None, ge=0, le=1)
+    asset_criticality: Optional[int] = Field(None, ge=0, le=10)
+    epss_source: Optional[str] = Field(None, max_length=50)
+    published_date: Optional[str] = Field(None, max_length=30)
+    processing_status: Optional[str] = Field(None, max_length=30)
+    error_reason: Optional[str] = Field(None, max_length=500)
     irc: Optional[float] = Field(None, ge=0, le=10)
     severity: Optional[Severity] = None
     status: Optional[VulnerabilityStatus] = None
@@ -123,6 +143,35 @@ class HistoryLogRead(HistoryLogBase):
     ip_address: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class IngestionLogRead(BaseModel):
+    id: int
+    vulnerability_id: int
+    cve: str
+    nvd_published_at: Optional[datetime] = None
+    inserted_at: datetime
+    detection_delta_seconds: Optional[int] = None
+    source: str
+
+    model_config = {"from_attributes": True}
+
+
+class IngestionLogPage(BaseModel):
+    items: list[IngestionLogRead]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class DetectionSummary(BaseModel):
+    total_registros: int
+    con_delta_medible: int
+    sin_nvd_published: int
+    avg_seconds: Optional[int] = None
+    min_seconds: Optional[int] = None
+    max_seconds: Optional[int] = None
 
 
 class LoginRequest(BaseModel):

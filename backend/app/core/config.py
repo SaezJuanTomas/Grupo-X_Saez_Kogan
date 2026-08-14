@@ -14,6 +14,16 @@ class Config(BaseSettings):
     NVD_API_KEY: str = ""
     LOG_LEVEL: str = "INFO"
 
+    # Notificaciones por email (opcional: si SMTP_HOST/FROM estan vacios no se envian mails)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    FRONTEND_URL: str = "http://localhost:5173"
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

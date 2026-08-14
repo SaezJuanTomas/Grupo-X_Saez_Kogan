@@ -10,7 +10,7 @@ from .core.config import config
 from .core.exceptions import register_exception_handlers
 from .core.logging import LoggingMiddleware, setup_logging
 from .core.rate_limit import limiter
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal, engine, ensure_schema_updates
 from .routers import (
     auth_router,
     comment_router,
@@ -18,6 +18,7 @@ from .routers import (
     history_router,
     n8n_router,
     statistics_router,
+    trazabilidad_router,
     user_router,
     vulnerability_router,
 )
@@ -47,6 +48,7 @@ register_exception_handlers(app)
 def on_startup() -> None:
     try:
         Base.metadata.create_all(bind=engine)
+        ensure_schema_updates(engine)
         db = SessionLocal()
         try:
             seed_database(db)
@@ -77,3 +79,4 @@ app.include_router(comment_router.router)
 app.include_router(history_router.router)
 app.include_router(statistics_router.router)
 app.include_router(n8n_router.router)
+app.include_router(trazabilidad_router.router)
