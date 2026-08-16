@@ -19,6 +19,7 @@ class StatisticsService:
     def get_dashboard_stats(self) -> dict:
         severity_counts_raw = dict(
             self.db.query(Vulnerability.severity, func.count())
+            .filter(Vulnerability.severity.isnot(None))
             .group_by(Vulnerability.severity)
             .all()
         )

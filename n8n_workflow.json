@@ -1,19 +1,26 @@
 {
   "name": "Grupo X - NVD Vulnerability Automation",
-  "description": "Fetches vulnerabilities from NVD API, enriches data with realistic EPSS mapping, calculates IRC, checks idempotency, and stores in FastAPI backend",
+  "description": "Fetches vulnerabilities from NVD API, enriches data with real FIRST.org EPSS (batch query, up to 100 CVEs per request), calculates IRC, checks idempotency, and stores in FastAPI backend. No simulated EPSS fallback.",
   "nodes": [
     {
       "name": "Manual Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [50, 300],
+      "position": [
+        50,
+        300
+      ],
       "parameters": {}
     },
     {
       "name": "Schedule Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1,
-      "position": [50, 100],
+      "position": [
+        50,
+        100
+      ],
+      "activated": true,
       "parameters": {
         "rule": {
           "interval": [
@@ -29,7 +36,10 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1,
-      "position": [50, 500],
+      "position": [
+        50,
+        500
+      ],
       "webhookId": "df4994bf82a94a8b",
       "parameters": {
         "path": "trigger-nvd-fetch",
@@ -41,9 +51,12 @@
       "name": "Fetch NVD API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [250, 300],
+      "position": [
+        250,
+        300
+      ],
       "parameters": {
-        "url": "https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20&keywords=nginx,apache,wordpress,tomcat,kubernetes,docker,linux,windows,.net,mysql,postgresql,sql server,redis",
+        "url": "https://services.nvd.nist.gov/rest/json/cves/2.0?resultsPerPage=20",
         "method": "GET",
         "responseFormat": "json",
         "options": {
@@ -56,16 +69,22 @@
       "name": "Extract Fields",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [450, 300],
+      "position": [
+        450,
+        300
+      ],
       "parameters": {
-        "jsCode": "const items = $input.all()[0].json.vulnerabilities || [];\n\nconst extracted = items.map(item => {\n  const cve = item.cve.id;\n\n  const cvss =\n    item.cve.metrics?.cvssMetricV31?.[0]?.cvssData?.baseScore ||\n    item.cve.metrics?.cvssMetricV30?.[0]?.cvssData?.baseScore ||\n    item.cve.metrics?.cvssMetricV2?.[0]?.cvssData?.baseScore ||\n    5.0;\n\n  const description = (\n    item.cve.descriptions?.[0]?.value || 'No description available'\n  ).substring(0, 500);\n\n  const publishedDate = item.cve.published || null;\n\n  return {\n    cve,\n    cvss,\n    description,\n    publishedDate,\n    timestamp: new Date().toISOString()\n  };\n});\n\nreturn extracted.map(item => ({ json: { item } }));"
+        "jsCode": "const items = $input.all()[0].json.vulnerabilities || [];\n\nconst extracted = items.map(item => {\n  const cve = item.cve.id;\n\n  const cvssMetric =\n    item.cve.metrics?.cvssMetricV31?.[0] ||\n    item.cve.metrics?.cvssMetricV30?.[0] ||\n    item.cve.metrics?.cvssMetricV2?.[0];\n\n  const cvss = cvssMetric?.cvssData?.baseScore ?? null;\n  const cvss_vector = cvssMetric?.cvssData?.vectorString ?? null;\n\n  const description = (\n    item.cve.descriptions?.[0]?.value || 'No description available'\n  ).substring(0, 500);\n\n  const publishedDate = item.cve.published || null;\n\n  return {\n    cve,\n    cvss,\n    cvss_vector,\n    description,\n    publishedDate,\n    timestamp: new Date().toISOString()\n  };\n});\n\nreturn extracted.map(item => ({ json: { item } }));"
       }
     },
     {
       "name": "Filter Completeness",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [650, 300],
+      "position": [
+        650,
+        300
+      ],
       "parameters": {
         "conditions": {
           "number": [
@@ -82,16 +101,22 @@
       "name": "Normalize Data",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [850, 300],
+      "position": [
+        850,
+        300
+      ],
       "parameters": {
-        "jsCode": "const item = $json.item;\nconst cvss = Math.min(Math.max(parseFloat(item.cvss) || 5, 0), 10);\nlet epss = 0.01;\nlet epssSource = 'cvss-estimate';\n\ntry {\n  const url = 'https://api.first.org/data/v1/epss?cve=' + encodeURIComponent(item.cve);\n  const response = await $http.get(url, { timeout: 10000 });\n  if (response && response.data && response.data.length > 0 && response.data[0].epss) {\n    epss = parseFloat(response.data[0].epss);\n    epssSource = 'first.org';\n  }\n} catch (error) {\n  console.error('EPSS API error for ' + item.cve + ': ' + error.message);\n}\n\nif (epssSource === 'cvss-estimate') {\n  if (cvss >= 9.0) {\n    epss = 0.75 + (Math.random() * 0.2);\n  } else if (cvss >= 7.0) {\n    epss = 0.40 + (Math.random() * 0.35);\n  } else if (cvss >= 5.0) {\n    epss = 0.10 + (Math.random() * 0.30);\n  } else if (cvss >= 3.0) {\n    epss = 0.03 + (Math.random() * 0.17);\n  } else {\n    epss = 0.01 + (Math.random() * 0.09);\n  }\n  epss = Math.min(Math.max(epss, 0.01), 0.98);\n}\n\nreturn [{\n  json: {\n    item: {\n      cve: item.cve,\n      cvss: cvss,\n      epss: parseFloat(epss.toFixed(4)),\n      epss_source: epssSource,\n      description: (item.description || '').trim(),\n      publishedDate: item.publishedDate,\n      normalized_timestamp: new Date().toISOString()\n    }\n  }\n}];"
+        "jsCode": "const items = $input.all()\n  .map(entry => entry.json.item)\n  .filter(item => item && item.cve);\n\nif (items.length === 0) return [];\n\nconst EPSS_BASE_URL = 'https://api.first.org/data/v1/epss';\nconst EPSS_BATCH_SIZE = 100;\n\nasync function fetchEpss(cveList) {\n  const url = EPSS_BASE_URL + '?cve=' + encodeURIComponent(cveList.join(','));\n  const response = await $http.get(url, {\n    timeout: 30000,\n    headers: { 'User-Agent': 'grupo-x-thesis/2.0' }\n  });\n  const records = (response && response.data) || [];\n  const map = {};\n  for (const record of records) {\n    if (record && record.cve) {\n      map[record.cve] = {\n        epss: parseFloat(record.epss),\n        percentile: parseFloat(record.percentile),\n        date: record.date\n      };\n    }\n  }\n  return map;\n}\n\nasync function main() {\n  let epssMap = {};\n  let batchError = null;\n\n  try {\n    for (let i = 0; i < items.length; i += EPSS_BATCH_SIZE) {\n      const chunk = items.slice(i, i + EPSS_BATCH_SIZE).map(item => item.cve);\n      const partial = await fetchEpss(chunk);\n      Object.assign(epssMap, partial);\n    }\n  } catch (error) {\n    batchError = error;\n  }\n\n  return items.map(item => {\n    const entry = {\n      cve: item.cve,\n      cvss: item.cvss != null ? Math.min(Math.max(parseFloat(item.cvss) || 0, 0), 10) : null,\n      cvss_vector: item.cvss_vector || null,\n      description: (item.description || '').trim(),\n      publishedDate: item.publishedDate || null,\n      normalized_timestamp: new Date().toISOString(),\n      epss: null,\n      epss_percentile: null,\n      epss_date: null,\n      epss_source: null,\n      processing_status: null,\n      error_reason: null\n    };\n\n    if (batchError) {\n      entry.processing_status = 'error';\n      entry.error_reason = 'Error de red en API EPSS: ' + (batchError.message || 'desconocido');\n    } else if (entry.cvss == null) {\n      entry.processing_status = 'error';\n      entry.error_reason = 'CVSS no disponible en NVD';\n    } else if (epssMap[item.cve]) {\n      entry.epss = epssMap[item.cve].epss;\n      entry.epss_percentile = epssMap[item.cve].percentile;\n      entry.epss_date = epssMap[item.cve].date;\n      entry.epss_source = 'first.org';\n      entry.processing_status = 'success';\n    } else {\n      entry.epss_source = 'unavailable';\n      entry.processing_status = 'no_epss';\n      entry.error_reason = 'CVE no encontrado en FIRST EPSS';\n    }\n\n    return { json: { item: entry } };\n  });\n}\n\nreturn await main();"
       }
     },
     {
       "name": "Asset Correlation",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1050, 300],
+      "position": [
+        1050,
+        300
+      ],
       "parameters": {
         "jsCode": "const item = $json.item;\nconst searchText = (item.description || '').toLowerCase();\n\nlet asset = 'Sistema General';\nlet criticality = 5;\n\nif (searchText.includes('nginx')) {\n  asset = 'Servidor Nginx';\n  criticality = 10;\n} else if (searchText.includes('apache')) {\n  asset = 'Servidor Apache';\n  criticality = 8;\n} else if (searchText.includes('wordpress')) {\n  asset = 'Aplicación WordPress';\n  criticality = 6;\n} else if (searchText.includes('tomcat')) {\n  asset = 'Servidor Tomcat';\n  criticality = 8;\n} else if (searchText.includes('kubernetes') || searchText.includes('k8s')) {\n  asset = 'Orquestador Kubernetes';\n  criticality = 9;\n} else if (searchText.includes('docker') || searchText.includes('container')) {\n  asset = 'Plataforma Docker';\n  criticality = 7;\n} else if (searchText.includes('linux')) {\n  asset = 'Servidor Linux';\n  criticality = 6;\n} else if (searchText.includes('windows')) {\n  asset = 'Servidor Windows';\n  criticality = 6;\n} else if (searchText.includes('.net') || searchText.includes('asp.net')) {\n  asset = 'Plataforma .NET';\n  criticality = 7;\n} else if (searchText.includes('mysql') || searchText.includes('postgresql') || searchText.includes('sql server')) {\n  asset = 'Base de Datos';\n  criticality = 9;\n} else if (searchText.includes('redis')) {\n  asset = 'Cache Redis';\n  criticality = 5;\n}\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      correlated_asset: asset,\n      asset_criticality: criticality\n    }\n  }\n}];"
       }
@@ -100,16 +125,22 @@
       "name": "Calculate IRC",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1250, 300],
+      "position": [
+        1250,
+        300
+      ],
       "parameters": {
-        "jsCode": "const item = $json.item;\n\n// IRC = CVSS (40%) + EPSS (40%) + Asset Criticality (20%)\nconst irc =\n  (item.cvss * 0.4) +\n  (item.epss * 10 * 0.4) +\n  (item.asset_criticality * 0.2);\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      irc: parseFloat(Math.min(irc, 10).toFixed(2))\n    }\n  }\n}];"
+        "jsCode": "const item = $json.item;\n\nlet irc = null;\n\nif (item.cvss != null && item.epss != null && item.asset_criticality != null) {\n  // IRC = CVSS (40%) + EPSS (40%) + Asset Criticality (20%)\n  irc =\n    (item.cvss * 0.4) +\n    (item.epss * 10 * 0.4) +\n    (item.asset_criticality * 0.2);\n  irc = parseFloat(Math.min(irc, 10).toFixed(2));\n}\n\nreturn [{ json: { item: { ...item, irc } } }];"
       }
     },
     {
       "name": "Detect Critical",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [1450, 300],
+      "position": [
+        1450,
+        300
+      ],
       "parameters": {
         "conditions": {
           "number": [
@@ -126,25 +157,34 @@
       "name": "Critical Path - Mark",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1650, 150],
+      "position": [
+        1650,
+        150
+      ],
       "parameters": {
-        "jsCode": "if (!$json || !$json.item) return [];\n\nconst item = $json.item;\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      is_critical: true,\n      severity_override: 'Cr\u00edtica',\n      alert_event: 'CRITICAL_ALERT_GENERATED'\n    }\n  }\n}];"
+        "jsCode": "if (!$json || !$json.item) return [];\n\nconst item = $json.item;\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      is_critical: true,\n      severity_override: 'Crítica',\n      alert_event: 'CRITICAL_ALERT_GENERATED'\n    }\n  }\n}];"
       }
     },
     {
       "name": "Normal Path - Mark",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1650, 450],
+      "position": [
+        1650,
+        450
+      ],
       "parameters": {
-        "jsCode": "if (!$json || !$json.item) return [];\n\nconst item = $json.item;\n\nlet severity = 'Baja';\n\nif (item.irc >= 7.5) {\n  severity = 'Cr\u00edtica';\n} else if (item.irc >= 5.0) {\n  severity = 'Alta';\n} else if (item.irc >= 2.5) {\n  severity = 'Media';\n}\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      is_critical: false,\n      severity_override: severity,\n      alert_event: null\n    }\n  }\n}];"
+        "jsCode": "if (!$json || !$json.item) return [];\n\nconst item = $json.item;\n\nlet severity = null;\n\nif (item.irc != null) {\n  if (item.irc >= 7.5) {\n    severity = 'Crítica';\n  } else if (item.irc >= 5.0) {\n    severity = 'Alta';\n  } else if (item.irc >= 2.5) {\n    severity = 'Media';\n  } else {\n    severity = 'Baja';\n  }\n}\n\nreturn [{\n  json: {\n    item: {\n      ...item,\n      is_critical: false,\n      severity_override: severity,\n      alert_event: null\n    }\n  }\n}];"
       }
     },
     {
       "name": "Merge Branches",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 2,
-      "position": [1850, 300],
+      "position": [
+        1850,
+        300
+      ],
       "parameters": {
         "mode": "append"
       }
@@ -153,7 +193,10 @@
       "name": "Idempotency Check",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [2050, 300],
+      "position": [
+        2050,
+        300
+      ],
       "parameters": {
         "method": "GET",
         "url": "={{ 'http://host.docker.internal:8000/webhook/n8n/vulnerabilidades/existe?cve=' + encodeURIComponent($json.payload.cve) + '&company_id=' + encodeURIComponent($json.payload.company_id) }}",
@@ -177,7 +220,10 @@
       "name": "Skip if Exists",
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
-      "position": [2250, 300],
+      "position": [
+        2250,
+        300
+      ],
       "parameters": {
         "conditions": {
           "boolean": [
@@ -194,16 +240,22 @@
       "name": "Assign Analyst",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2450, 400],
+      "position": [
+        2450,
+        400
+      ],
       "parameters": {
-        "jsCode": "const item = $json.item;\nif (!item) return [];\n\nconst description = (item.description || '').toLowerCase();\nconst asset = (item.correlated_asset || '').toLowerCase();\n\nasync function matchCompanies() {\n  try {\n    const response = await $http.get('http://host.docker.internal:8000/webhook/n8n/empresas', {\n      headers: { 'x-api-key': 'grp-x-n8n-secret-2025' }\n    });\n    const companies = Array.isArray(response) ? response : (response.data || []);\n\n    const scored = companies.map((company) => {\n      const techs = company.technologies || [];\n      let score = 0;\n      let matchedTechnology = null;\n\n      for (const technology of techs) {\n        const technologyLower = technology.toLowerCase();\n        const matchesDescription = description.includes(technologyLower);\n        const matchesAsset = asset.includes(technologyLower);\n\n        if (matchesDescription) {\n          score += 2;\n          if (!matchedTechnology) matchedTechnology = technology;\n        }\n\n        if (matchesAsset) {\n          score += 1;\n          if (!matchedTechnology) matchedTechnology = technology;\n        }\n      }\n\n      return { company, score, matchedTechnology };\n    });\n\n    let matchedCompanies = scored.filter((entry) => entry.score > 0).sort((left, right) => right.score - left.score);\n\n    if (matchedCompanies.length === 0 && scored.length > 0) {\n      matchedCompanies = [scored[0]];\n    }\n\n    const severity = item.severity_override;\n    const analyst_id = severity === 'Cr\u00edtica' || severity === 'Alta' ? 2 : 3;\n\n    return matchedCompanies.map((entry) => ({\n      json: {\n        payload: {\n          cve: item.cve,\n          description: item.description,\n          affected_technology: entry.matchedTechnology,\n          irc: item.irc,\n          severity,\n          status: 'Pendiente',\n          company_id: entry.company.id,\n          assigned_analyst_id: analyst_id\n        }\n      }\n    }));\n  } catch (error) {\n    console.error('Error matching companies:', error.message);\n\n    const severity = item.severity_override;\n    const analyst_id = severity === 'Cr\u00edtica' || severity === 'Alta' ? 2 : 3;\n\n    return [{\n      json: {\n        payload: {\n          cve: item.cve,\n          description: item.description,\n          affected_technology: null,\n          irc: item.irc,\n          severity,\n          status: 'Pendiente',\n          company_id: 1,\n          assigned_analyst_id: analyst_id\n        }\n      }\n    }];\n  }\n}\n\nreturn await matchCompanies();\n"
+        "jsCode": "const item = $json.item;\nif (!item) return [];\n\nconst description = (item.description || '').toLowerCase();\nconst asset = (item.correlated_asset || '').toLowerCase();\n\nasync function matchCompanies() {\n  try {\n    const response = await $http.get('http://host.docker.internal:8000/webhook/n8n/empresas', {\n      headers: { 'x-api-key': 'grp-x-n8n-secret-2025' }\n    });\n    const companies = Array.isArray(response) ? response : (response.data || []);\n\n    const scored = companies.map((company) => {\n      const techs = company.technologies || [];\n      let score = 0;\n      let matchedTechnology = null;\n\n      for (const technology of techs) {\n        const technologyLower = technology.toLowerCase();\n        const matchesDescription = description.includes(technologyLower);\n        const matchesAsset = asset.includes(technologyLower);\n\n        if (matchesDescription) {\n          score += 2;\n          if (!matchedTechnology) matchedTechnology = technology;\n        }\n\n        if (matchesAsset) {\n          score += 1;\n          if (!matchedTechnology) matchedTechnology = technology;\n        }\n      }\n\n      return { company, score, matchedTechnology };\n    });\n\n    let matchedCompanies = scored.filter((entry) => entry.score > 0).sort((left, right) => right.score - left.score);\n\n    if (matchedCompanies.length === 0 && scored.length > 0) {\n      matchedCompanies = [scored[0]];\n    }\n\n    const severity = item.severity_override;\n    const analyst_id = severity === 'Crítica' || severity === 'Alta' ? 2 : 3;\n\n    return matchedCompanies.map((entry) => ({\n      json: {\n        payload: {\n          cve: item.cve,\n          description: item.description,\n          affected_technology: entry.matchedTechnology,\n          irc: item.irc,\n          severity,\n          status: 'Pendiente',\n          company_id: entry.company.id,\n          assigned_analyst_id: analyst_id,\n          cvss: item.cvss,\n          cvss_vector: item.cvss_vector,\n          epss: item.epss,\n          epss_date: item.epss_date,\n          epss_percentile: item.epss_percentile,\n          asset_criticality: item.asset_criticality,\n          epss_source: item.epss_source,\n          published_date: item.publishedDate,\n          processing_status: item.processing_status,\n          error_reason: item.error_reason\n        }\n      }\n    }));\n  } catch (error) {\n    console.error('Error matching companies:', error.message);\n\n    const severity = item.severity_override;\n    const analyst_id = severity === 'Crítica' || severity === 'Alta' ? 2 : 3;\n\n    return [{\n      json: {\n        payload: {\n          cve: item.cve,\n          description: item.description,\n          affected_technology: null,\n          irc: item.irc,\n          severity,\n          status: 'Pendiente',\n          company_id: 1,\n          assigned_analyst_id: analyst_id,\n          cvss: item.cvss,\n          cvss_vector: item.cvss_vector,\n          epss: item.epss,\n          epss_date: item.epss_date,\n          epss_percentile: item.epss_percentile,\n          asset_criticality: item.asset_criticality,\n          epss_source: item.epss_source,\n          published_date: item.publishedDate,\n          processing_status: item.processing_status,\n          error_reason: item.error_reason\n        }\n      }\n    }];\n  }\n}\n\nreturn await matchCompanies();"
       }
     },
     {
       "name": "POST to FastAPI",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
-      "position": [2650, 400],
+      "position": [
+        2650,
+        400
+      ],
       "parameters": {
         "method": "POST",
         "url": "http://host.docker.internal:8000/webhook/n8n/vulnerabilidades",
@@ -228,7 +280,10 @@
       "name": "Generate Summary",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2850, 300],
+      "position": [
+        2850,
+        300
+      ],
       "parameters": {
         "jsCode": "const allResults = $input.all();\n\nlet successCount = 0;\nlet skippedCount = 0;\nlet errorCount = 0;\n\nallResults.forEach(result => {\n  if (result.json && result.json.payload) {\n    successCount++;\n  } else if (result.json && result.json.exists === true) {\n    skippedCount++;\n  } else {\n    errorCount++;\n  }\n});\n\nreturn [{\n  json: {\n    execution_summary: {\n      timestamp: new Date().toISOString(),\n      total_processed: successCount + skippedCount + errorCount,\n      created: successCount,\n      skipped_duplicates: skippedCount,\n      errors: errorCount,\n      status: errorCount === 0 ? 'SUCCESS' : 'PARTIAL_SUCCESS'\n    }\n  }\n}];"
       }
@@ -236,55 +291,200 @@
   ],
   "connections": {
     "Manual Trigger": {
-      "main": [[{"node": "Fetch NVD API", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Fetch NVD API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Schedule Trigger": {
-      "main": [[{"node": "Fetch NVD API", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Fetch NVD API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Webhook Trigger": {
-      "main": [[{"node": "Fetch NVD API", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Fetch NVD API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Fetch NVD API": {
-      "main": [[{"node": "Extract Fields", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Extract Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Extract Fields": {
-      "main": [[{"node": "Filter Completeness", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Filter Completeness",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Filter Completeness": {
-      "main": [[{"node": "Normalize Data", "type": "main", "index": 0}], []]
+      "main": [
+        [
+          {
+            "node": "Normalize Data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
     },
     "Normalize Data": {
-      "main": [[{"node": "Asset Correlation", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Asset Correlation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Asset Correlation": {
-      "main": [[{"node": "Calculate IRC", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Calculate IRC",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Calculate IRC": {
-      "main": [[{"node": "Detect Critical", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Detect Critical",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Detect Critical": {
-      "main": [[{"node": "Critical Path - Mark", "type": "main", "index": 0}], [{"node": "Normal Path - Mark", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Critical Path - Mark",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Normal Path - Mark",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Critical Path - Mark": {
-      "main": [[{"node": "Merge Branches", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Merge Branches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Normal Path - Mark": {
-      "main": [[{"node": "Merge Branches", "type": "main", "index": 1}]]
+      "main": [
+        [
+          {
+            "node": "Merge Branches",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
     },
     "Merge Branches": {
-      "main": [[{"node": "Assign Analyst", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Assign Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Assign Analyst": {
-      "main": [[{"node": "Idempotency Check", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Idempotency Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Idempotency Check": {
-      "main": [[{"node": "Skip if Exists", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Skip if Exists",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "Skip if Exists": {
-      "main": [[{"node": "POST to FastAPI", "type": "main", "index": 0}], []]
+      "main": [
+        [
+          {
+            "node": "POST to FastAPI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
     },
     "POST to FastAPI": {
-      "main": [[{"node": "Generate Summary", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "Generate Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,

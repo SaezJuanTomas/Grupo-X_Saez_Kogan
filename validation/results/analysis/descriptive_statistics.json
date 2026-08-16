@@ -1,0 +1,1200 @@
+{
+  "general": {
+    "cvss": {
+      "n": 100,
+      "min": 2.4,
+      "max": 10.0,
+      "mean": 6.787,
+      "median": 7.4,
+      "std": 2.1923
+    },
+    "epss": {
+      "n": 100,
+      "min": 0.0009,
+      "max": 0.0229,
+      "mean": 0.0034,
+      "median": 0.0028,
+      "std": 0.0029
+    },
+    "irc": {
+      "n": 100,
+      "min": 1.97,
+      "max": 5.84,
+      "mean": 3.9586,
+      "median": 4.11,
+      "std": 0.9918
+    },
+    "asset_criticality": {
+      "n": 100,
+      "min": 5,
+      "max": 10,
+      "mean": 6.15,
+      "median": 5.5,
+      "std": 1.5201
+    },
+    "asset_criticality_distribution": {
+      "5": 50,
+      "6": 22,
+      "7": 8,
+      "8": 7,
+      "9": 9,
+      "10": 4
+    },
+    "severity_distribution": {
+      "Media": 75,
+      "Baja": 14,
+      "Alta": 11
+    },
+    "n_total": 100,
+    "cvss_band_distribution": {
+      "Medium": 30,
+      "Low": 15,
+      "High": 37,
+      "Critical": 18
+    }
+  },
+  "band_analysis": [
+    {
+      "band": "Critical",
+      "n": 18,
+      "cvss_mean": 9.6944,
+      "epss_mean": 0.005719,
+      "irc_mean": 5.0344,
+      "irc_min": 4.65,
+      "irc_max": 5.84,
+      "severity_distribution": {
+        "Media": 13,
+        "Alta": 5
+      },
+      "same_category": 0,
+      "baja": 18,
+      "sube": 0
+    },
+    {
+      "band": "High",
+      "n": 37,
+      "cvss_mean": 7.827,
+      "epss_mean": 0.003801,
+      "irc_mean": 4.4862,
+      "irc_min": 3.85,
+      "irc_max": 5.37,
+      "severity_distribution": {
+        "Media": 31,
+        "Alta": 6
+      },
+      "same_category": 6,
+      "baja": 31,
+      "sube": 0
+    },
+    {
+      "band": "Medium",
+      "n": 30,
+      "cvss_mean": 5.64,
+      "epss_mean": 0.002375,
+      "irc_mean": 3.5123,
+      "irc_min": 2.73,
+      "irc_max": 4.62,
+      "severity_distribution": {
+        "Media": 30
+      },
+      "same_category": 30,
+      "baja": 0,
+      "sube": 0
+    },
+    {
+      "band": "Low",
+      "n": 15,
+      "cvss_mean": 3.0267,
+      "epss_mean": 0.001785,
+      "irc_mean": 2.2587,
+      "irc_min": 1.97,
+      "irc_max": 2.69,
+      "severity_distribution": {
+        "Baja": 14,
+        "Media": 1
+      },
+      "same_category": 14,
+      "baja": 0,
+      "sube": 1
+    }
+  ],
+  "sample_A_vs_B": [
+    {
+      "sample": "A",
+      "n": 60,
+      "cvss_mean": 6.5183,
+      "epss_mean": 0.002932,
+      "irc_mean": 3.6823,
+      "severity_distribution": {
+        "Media": 43,
+        "Baja": 14,
+        "Alta": 3
+      },
+      "asset_criticality_distribution": {
+        "5": 48,
+        "6": 9,
+        "8": 2,
+        "9": 1
+      },
+      "sistema_general_count": 48,
+      "tecnologias_detectadas_count": 12,
+      "tecnologias_detectadas": {
+        "Aplicación WordPress": 5,
+        "Servidor Windows": 3,
+        "Orquestador Kubernetes": 1,
+        "Servidor Linux": 1,
+        "Servidor Apache": 2
+      },
+      "divergencias_cvss_vs_irc": 30,
+      "cvss_band_distribution": {
+        "Medium": 15,
+        "Low": 15,
+        "High": 15,
+        "Critical": 15
+      }
+    },
+    {
+      "sample": "B",
+      "n": 40,
+      "cvss_mean": 7.19,
+      "epss_mean": 0.004143,
+      "irc_mean": 4.373,
+      "severity_distribution": {
+        "Media": 32,
+        "Alta": 8
+      },
+      "asset_criticality_distribution": {
+        "5": 2,
+        "6": 13,
+        "7": 8,
+        "8": 5,
+        "9": 8,
+        "10": 4
+      },
+      "sistema_general_count": 0,
+      "tecnologias_detectadas_count": 40,
+      "tecnologias_detectadas": {
+        "Aplicación WordPress": 5,
+        "Plataforma Docker": 4,
+        "Servidor Tomcat": 1,
+        "Orquestador Kubernetes": 4,
+        "Base de Datos": 4,
+        "Servidor Apache": 4,
+        "Servidor Windows": 4,
+        "Plataforma .NET": 4,
+        "Servidor Nginx": 4,
+        "Cache Redis": 2,
+        "Servidor Linux": 4
+      },
+      "divergencias_cvss_vs_irc": 20,
+      "cvss_band_distribution": {
+        "Medium": 15,
+        "High": 22,
+        "Critical": 3
+      }
+    }
+  ],
+  "component_summary": {
+    "componente_cvss": {
+      "n": 100,
+      "min": 0.96,
+      "max": 4.0,
+      "mean": 2.7148,
+      "median": 2.96,
+      "std": 0.8769
+    },
+    "componente_epss": {
+      "n": 100,
+      "min": 0.0038,
+      "max": 0.0915,
+      "mean": 0.0137,
+      "median": 0.0112,
+      "std": 0.0116
+    },
+    "componente_criticidad": {
+      "n": 100,
+      "min": 1.0,
+      "max": 2.0,
+      "mean": 1.23,
+      "median": 1.1,
+      "std": 0.304
+    },
+    "pct_sobre_irc_mean": {
+      "cvss": 67.19,
+      "epss": 0.33,
+      "criticidad": 32.48
+    },
+    "pct_sobre_suma_media": {
+      "cvss": 68.58,
+      "epss": 0.3452,
+      "criticidad": 31.07
+    },
+    "irc_mean": 3.9586,
+    "peso_practico_epss": "EPSS contribuyó en promedio ~0.334% del IRC"
+  },
+  "correlations": {
+    "nota": "Correlaciones DESCRIPTIVAS sobre los 100 resultados; no implican causalidad.",
+    "pares": [
+      {
+        "x": "CVSS",
+        "y": "IRC",
+        "pearson": 0.9533,
+        "spearman": 0.9378
+      },
+      {
+        "x": "CVSS",
+        "y": "EPSS",
+        "pearson": 0.4438,
+        "spearman": 0.5898
+      },
+      {
+        "x": "EPSS",
+        "y": "IRC",
+        "pearson": 0.4759,
+        "spearman": 0.6384
+      },
+      {
+        "x": "Asset Criticality",
+        "y": "IRC",
+        "pearson": 0.4947,
+        "spearman": 0.4314
+      }
+    ]
+  },
+  "threshold": {
+    "regla": "IRC >= 7.5 -> severidad Critica (nodo Detect Critical)",
+    "irc_max_observado": {
+      "cve": "CVE-2026-56163",
+      "irc": 5.84,
+      "cvss": 10.0,
+      "epss": 0.00901,
+      "asset_criticality": 9
+    },
+    "max_irc_posible_en_muestra": {
+      "descripcion": "combinacion optimista de los mejores valores OBSERVADOS (cvss=10, crit=10, epss max)",
+      "cvss": 10.0,
+      "asset_criticality": 10,
+      "epss": 0.02287,
+      "irc": 6.09
+    },
+    "irc_max_teorico_absoluto": {
+      "descripcion": "CVSS=10, EPSS=1.0, criticidad=10",
+      "cvss": 10,
+      "epss": 1.0,
+      "asset_criticality": 10,
+      "irc": 10.0
+    },
+    "epss_max_observado": 0.02287,
+    "epss_necesario_para_7.5": [
+      {
+        "cvss": 10,
+        "asset_criticality": 10,
+        "epss_necesario": 0.375
+      },
+      {
+        "cvss": 9,
+        "asset_criticality": 10,
+        "epss_necesario": 0.475
+      },
+      {
+        "cvss": 10,
+        "asset_criticality": 8,
+        "epss_necesario": 0.475
+      },
+      {
+        "cvss": 10,
+        "asset_criticality": 5,
+        "epss_necesario": 0.625
+      },
+      {
+        "cvss": 9.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.645
+      },
+      {
+        "cvss": 9,
+        "asset_criticality": 5,
+        "epss_necesario": 0.725
+      }
+    ],
+    "epss_necesario_minimo_por_cve": {
+      "cve": "CVE-2026-56163",
+      "cvss": 10.0,
+      "asset_criticality": 9,
+      "epss_necesario": 0.425
+    },
+    "conclusion": "Con EPSS maximo observado de 0.02287, aun con CVSS=10 y criticidad=10 el IRC maximo seria 6.09 < 7.5. Para alcanzar 7.5 se necesitaria EPSS >= 0.375 (con CVSS=10, crit=10), es decir ~16.0x el maximo observado. Ningun CVE de la muestra pudo llegar a Critica.",
+    "per_cve_epss_necesario": [
+      {
+        "cve": "CVE-2025-12799",
+        "cvss": 6.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.975,
+        "epss_observado": 0.00247,
+        "gap": 0.9725
+      },
+      {
+        "cve": "CVE-2025-15668",
+        "cvss": 3.3,
+        "asset_criticality": 5,
+        "epss_necesario": 1.295,
+        "epss_observado": 0.00124,
+        "gap": 1.2938
+      },
+      {
+        "cve": "CVE-2025-56362",
+        "cvss": 7.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.875,
+        "epss_observado": 0.00338,
+        "gap": 0.8716
+      },
+      {
+        "cve": "CVE-2025-67403",
+        "cvss": 9.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.645,
+        "epss_observado": 0.0026,
+        "gap": 0.6424
+      },
+      {
+        "cve": "CVE-2026-10668",
+        "cvss": 2.4,
+        "asset_criticality": 5,
+        "epss_necesario": 1.385,
+        "epss_observado": 0.00159,
+        "gap": 1.3834
+      },
+      {
+        "cve": "CVE-2026-12385",
+        "cvss": 4.3,
+        "asset_criticality": 6,
+        "epss_necesario": 1.145,
+        "epss_observado": 0.00242,
+        "gap": 1.1426
+      },
+      {
+        "cve": "CVE-2026-14214",
+        "cvss": 2.7,
+        "asset_criticality": 6,
+        "epss_necesario": 1.305,
+        "epss_observado": 0.00168,
+        "gap": 1.3033
+      },
+      {
+        "cve": "CVE-2026-14474",
+        "cvss": 8.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.745,
+        "epss_observado": 0.00568,
+        "gap": 0.7393
+      },
+      {
+        "cve": "CVE-2026-14685",
+        "cvss": 3.3,
+        "asset_criticality": 5,
+        "epss_necesario": 1.295,
+        "epss_observado": 0.00118,
+        "gap": 1.2938
+      },
+      {
+        "cve": "CVE-2026-14820",
+        "cvss": 5.3,
+        "asset_criticality": 6,
+        "epss_necesario": 1.045,
+        "epss_observado": 0.00224,
+        "gap": 1.0428
+      },
+      {
+        "cve": "CVE-2026-14927",
+        "cvss": 3.7,
+        "asset_criticality": 6,
+        "epss_necesario": 1.205,
+        "epss_observado": 0.00162,
+        "gap": 1.2034
+      },
+      {
+        "cve": "CVE-2026-15005",
+        "cvss": 8.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.695,
+        "epss_observado": 0.00211,
+        "gap": 0.6929
+      },
+      {
+        "cve": "CVE-2026-15122",
+        "cvss": 8.3,
+        "asset_criticality": 6,
+        "epss_necesario": 0.745,
+        "epss_observado": 0.00196,
+        "gap": 0.743
+      },
+      {
+        "cve": "CVE-2026-15416",
+        "cvss": 8.9,
+        "asset_criticality": 9,
+        "epss_necesario": 0.535,
+        "epss_observado": 0.00281,
+        "gap": 0.5322
+      },
+      {
+        "cve": "CVE-2026-15662",
+        "cvss": 6.4,
+        "asset_criticality": 6,
+        "epss_necesario": 0.935,
+        "epss_observado": 0.00235,
+        "gap": 0.9326
+      },
+      {
+        "cve": "CVE-2026-16042",
+        "cvss": 4.3,
+        "asset_criticality": 6,
+        "epss_necesario": 1.145,
+        "epss_observado": 0.00195,
+        "gap": 1.1431
+      },
+      {
+        "cve": "CVE-2026-16073",
+        "cvss": 3.5,
+        "asset_criticality": 5,
+        "epss_necesario": 1.275,
+        "epss_observado": 0.00191,
+        "gap": 1.2731
+      },
+      {
+        "cve": "CVE-2026-16105",
+        "cvss": 4.9,
+        "asset_criticality": 7,
+        "epss_necesario": 1.035,
+        "epss_observado": 0.00192,
+        "gap": 1.0331
+      },
+      {
+        "cve": "CVE-2026-16218",
+        "cvss": 2.6,
+        "asset_criticality": 5,
+        "epss_necesario": 1.365,
+        "epss_observado": 0.002,
+        "gap": 1.363
+      },
+      {
+        "cve": "CVE-2026-16256",
+        "cvss": 9.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.595,
+        "epss_observado": 0.00303,
+        "gap": 0.592
+      },
+      {
+        "cve": "CVE-2026-16389",
+        "cvss": 9.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.645,
+        "epss_observado": 0.00436,
+        "gap": 0.6406
+      },
+      {
+        "cve": "CVE-2026-17673",
+        "cvss": 9.6,
+        "asset_criticality": 5,
+        "epss_necesario": 0.665,
+        "epss_observado": 0.00369,
+        "gap": 0.6613
+      },
+      {
+        "cve": "CVE-2026-17826",
+        "cvss": 3.1,
+        "asset_criticality": 5,
+        "epss_necesario": 1.315,
+        "epss_observado": 0.00174,
+        "gap": 1.3133
+      },
+      {
+        "cve": "CVE-2026-17912",
+        "cvss": 4.3,
+        "asset_criticality": 5,
+        "epss_necesario": 1.195,
+        "epss_observado": 0.00189,
+        "gap": 1.1931
+      },
+      {
+        "cve": "CVE-2026-17957",
+        "cvss": 3.1,
+        "asset_criticality": 5,
+        "epss_necesario": 1.315,
+        "epss_observado": 0.00146,
+        "gap": 1.3135
+      },
+      {
+        "cve": "CVE-2026-18047",
+        "cvss": 6.5,
+        "asset_criticality": 8,
+        "epss_necesario": 0.825,
+        "epss_observado": 0.00281,
+        "gap": 0.8222
+      },
+      {
+        "cve": "CVE-2026-18140",
+        "cvss": 7.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.875,
+        "epss_observado": 0.00436,
+        "gap": 0.8706
+      },
+      {
+        "cve": "CVE-2026-18381",
+        "cvss": 7.6,
+        "asset_criticality": 9,
+        "epss_necesario": 0.665,
+        "epss_observado": 0.00197,
+        "gap": 0.663
+      },
+      {
+        "cve": "CVE-2026-34150",
+        "cvss": 7.5,
+        "asset_criticality": 7,
+        "epss_necesario": 0.775,
+        "epss_observado": 0.00255,
+        "gap": 0.7724
+      },
+      {
+        "cve": "CVE-2026-40468",
+        "cvss": 9.1,
+        "asset_criticality": 5,
+        "epss_necesario": 0.715,
+        "epss_observado": 0.00201,
+        "gap": 0.713
+      },
+      {
+        "cve": "CVE-2026-41514",
+        "cvss": 2.5,
+        "asset_criticality": 6,
+        "epss_necesario": 1.325,
+        "epss_observado": 0.00095,
+        "gap": 1.324
+      },
+      {
+        "cve": "CVE-2026-41709",
+        "cvss": 2.7,
+        "asset_criticality": 5,
+        "epss_necesario": 1.355,
+        "epss_observado": 0.00382,
+        "gap": 1.3512
+      },
+      {
+        "cve": "CVE-2026-43694",
+        "cvss": 9.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.645,
+        "epss_observado": 0.00417,
+        "gap": 0.6408
+      },
+      {
+        "cve": "CVE-2026-43767",
+        "cvss": 5.0,
+        "asset_criticality": 5,
+        "epss_necesario": 1.125,
+        "epss_observado": 0.00118,
+        "gap": 1.1238
+      },
+      {
+        "cve": "CVE-2026-44182",
+        "cvss": 10.0,
+        "asset_criticality": 8,
+        "epss_necesario": 0.475,
+        "epss_observado": 0.00498,
+        "gap": 0.47
+      },
+      {
+        "cve": "CVE-2026-45737",
+        "cvss": 6.3,
+        "asset_criticality": 9,
+        "epss_necesario": 0.795,
+        "epss_observado": 0.00359,
+        "gap": 0.7914
+      },
+      {
+        "cve": "CVE-2026-47032",
+        "cvss": 2.6,
+        "asset_criticality": 5,
+        "epss_necesario": 1.365,
+        "epss_observado": 0.00224,
+        "gap": 1.3628
+      },
+      {
+        "cve": "CVE-2026-47086",
+        "cvss": 3.5,
+        "asset_criticality": 5,
+        "epss_necesario": 1.275,
+        "epss_observado": 0.00179,
+        "gap": 1.2732
+      },
+      {
+        "cve": "CVE-2026-47295",
+        "cvss": 8.8,
+        "asset_criticality": 9,
+        "epss_necesario": 0.545,
+        "epss_observado": 0.00922,
+        "gap": 0.5358
+      },
+      {
+        "cve": "CVE-2026-47296",
+        "cvss": 7.5,
+        "asset_criticality": 9,
+        "epss_necesario": 0.675,
+        "epss_observado": 0.00497,
+        "gap": 0.67
+      },
+      {
+        "cve": "CVE-2026-48206",
+        "cvss": 5.3,
+        "asset_criticality": 8,
+        "epss_necesario": 0.945,
+        "epss_observado": 0.00349,
+        "gap": 0.9415
+      },
+      {
+        "cve": "CVE-2026-49209",
+        "cvss": 6.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.975,
+        "epss_observado": 0.00312,
+        "gap": 0.9719
+      },
+      {
+        "cve": "CVE-2026-49791",
+        "cvss": 7.1,
+        "asset_criticality": 6,
+        "epss_necesario": 0.865,
+        "epss_observado": 0.00278,
+        "gap": 0.8622
+      },
+      {
+        "cve": "CVE-2026-49798",
+        "cvss": 9.3,
+        "asset_criticality": 6,
+        "epss_necesario": 0.645,
+        "epss_observado": 0.02287,
+        "gap": 0.6221
+      },
+      {
+        "cve": "CVE-2026-50273",
+        "cvss": 7.5,
+        "asset_criticality": 7,
+        "epss_necesario": 0.775,
+        "epss_observado": 0.00482,
+        "gap": 0.7702
+      },
+      {
+        "cve": "CVE-2026-50327",
+        "cvss": 7.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.795,
+        "epss_observado": 0.00347,
+        "gap": 0.7915
+      },
+      {
+        "cve": "CVE-2026-50362",
+        "cvss": 7.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.795,
+        "epss_observado": 0.00335,
+        "gap": 0.7916
+      },
+      {
+        "cve": "CVE-2026-50407",
+        "cvss": 7.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.795,
+        "epss_observado": 0.00311,
+        "gap": 0.7919
+      },
+      {
+        "cve": "CVE-2026-50506",
+        "cvss": 7.5,
+        "asset_criticality": 7,
+        "epss_necesario": 0.775,
+        "epss_observado": 0.0078,
+        "gap": 0.7672
+      },
+      {
+        "cve": "CVE-2026-50650",
+        "cvss": 7.8,
+        "asset_criticality": 7,
+        "epss_necesario": 0.745,
+        "epss_observado": 0.0029,
+        "gap": 0.7421
+      },
+      {
+        "cve": "CVE-2026-51080",
+        "cvss": 9.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.645,
+        "epss_observado": 0.003,
+        "gap": 0.642
+      },
+      {
+        "cve": "CVE-2026-51926",
+        "cvss": 7.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.875,
+        "epss_observado": 0.0036,
+        "gap": 0.8714
+      },
+      {
+        "cve": "CVE-2026-52476",
+        "cvss": 7.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.875,
+        "epss_observado": 0.00369,
+        "gap": 0.8713
+      },
+      {
+        "cve": "CVE-2026-54118",
+        "cvss": 8.8,
+        "asset_criticality": 9,
+        "epss_necesario": 0.545,
+        "epss_observado": 0.01288,
+        "gap": 0.5321
+      },
+      {
+        "cve": "CVE-2026-54422",
+        "cvss": 5.5,
+        "asset_criticality": 7,
+        "epss_necesario": 0.975,
+        "epss_observado": 0.00124,
+        "gap": 0.9738
+      },
+      {
+        "cve": "CVE-2026-54423",
+        "cvss": 8.2,
+        "asset_criticality": 5,
+        "epss_necesario": 0.805,
+        "epss_observado": 0.00302,
+        "gap": 0.802
+      },
+      {
+        "cve": "CVE-2026-54652",
+        "cvss": 8.1,
+        "asset_criticality": 10,
+        "epss_necesario": 0.565,
+        "epss_observado": 0.00231,
+        "gap": 0.5627
+      },
+      {
+        "cve": "CVE-2026-55136",
+        "cvss": 7.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.845,
+        "epss_observado": 0.00303,
+        "gap": 0.842
+      },
+      {
+        "cve": "CVE-2026-55187",
+        "cvss": 5.8,
+        "asset_criticality": 5,
+        "epss_necesario": 1.045,
+        "epss_observado": 0.00282,
+        "gap": 1.0422
+      },
+      {
+        "cve": "CVE-2026-55254",
+        "cvss": 4.8,
+        "asset_criticality": 7,
+        "epss_necesario": 1.045,
+        "epss_observado": 0.00186,
+        "gap": 1.0431
+      },
+      {
+        "cve": "CVE-2026-55433",
+        "cvss": 5.4,
+        "asset_criticality": 7,
+        "epss_necesario": 0.985,
+        "epss_observado": 0.00224,
+        "gap": 0.9828
+      },
+      {
+        "cve": "CVE-2026-55723",
+        "cvss": 8.3,
+        "asset_criticality": 10,
+        "epss_necesario": 0.545,
+        "epss_observado": 0.00293,
+        "gap": 0.5421
+      },
+      {
+        "cve": "CVE-2026-55994",
+        "cvss": 7.5,
+        "asset_criticality": 8,
+        "epss_necesario": 0.725,
+        "epss_observado": 0.00621,
+        "gap": 0.7188
+      },
+      {
+        "cve": "CVE-2026-56163",
+        "cvss": 10.0,
+        "asset_criticality": 9,
+        "epss_necesario": 0.425,
+        "epss_observado": 0.00901,
+        "gap": 0.416
+      },
+      {
+        "cve": "CVE-2026-56416",
+        "cvss": 4.8,
+        "asset_criticality": 5,
+        "epss_necesario": 1.145,
+        "epss_observado": 0.00118,
+        "gap": 1.1438
+      },
+      {
+        "cve": "CVE-2026-56434",
+        "cvss": 6.5,
+        "asset_criticality": 10,
+        "epss_necesario": 0.725,
+        "epss_observado": 0.0045,
+        "gap": 0.7205
+      },
+      {
+        "cve": "CVE-2026-56688",
+        "cvss": 9.1,
+        "asset_criticality": 5,
+        "epss_necesario": 0.715,
+        "epss_observado": 0.01199,
+        "gap": 0.703
+      },
+      {
+        "cve": "CVE-2026-57390",
+        "cvss": 6.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.975,
+        "epss_observado": 0.00242,
+        "gap": 0.9726
+      },
+      {
+        "cve": "CVE-2026-58404",
+        "cvss": 6.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.945,
+        "epss_observado": 0.00208,
+        "gap": 0.9429
+      },
+      {
+        "cve": "CVE-2026-58547",
+        "cvss": 5.5,
+        "asset_criticality": 5,
+        "epss_necesario": 1.075,
+        "epss_observado": 0.00353,
+        "gap": 1.0715
+      },
+      {
+        "cve": "CVE-2026-59219",
+        "cvss": 7.1,
+        "asset_criticality": 5,
+        "epss_necesario": 0.915,
+        "epss_observado": 0.00305,
+        "gap": 0.912
+      },
+      {
+        "cve": "CVE-2026-59245",
+        "cvss": 8.1,
+        "asset_criticality": 8,
+        "epss_necesario": 0.665,
+        "epss_observado": 0.0036,
+        "gap": 0.6614
+      },
+      {
+        "cve": "CVE-2026-59525",
+        "cvss": 9.3,
+        "asset_criticality": 5,
+        "epss_necesario": 0.695,
+        "epss_observado": 0.00236,
+        "gap": 0.6926
+      },
+      {
+        "cve": "CVE-2026-59844",
+        "cvss": 6.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.975,
+        "epss_observado": 0.00506,
+        "gap": 0.9699
+      },
+      {
+        "cve": "CVE-2026-60005",
+        "cvss": 8.2,
+        "asset_criticality": 10,
+        "epss_necesario": 0.555,
+        "epss_observado": 0.0071,
+        "gap": 0.5479
+      },
+      {
+        "cve": "CVE-2026-60080",
+        "cvss": 7.3,
+        "asset_criticality": 8,
+        "epss_necesario": 0.745,
+        "epss_observado": 0.00424,
+        "gap": 0.7408
+      },
+      {
+        "cve": "CVE-2026-60204",
+        "cvss": 9.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.645,
+        "epss_observado": 0.00508,
+        "gap": 0.6399
+      },
+      {
+        "cve": "CVE-2026-60401",
+        "cvss": 6.5,
+        "asset_criticality": 9,
+        "epss_necesario": 0.775,
+        "epss_observado": 0.00148,
+        "gap": 0.7735
+      },
+      {
+        "cve": "CVE-2026-60939",
+        "cvss": 3.1,
+        "asset_criticality": 5,
+        "epss_necesario": 1.315,
+        "epss_observado": 0.00237,
+        "gap": 1.3126
+      },
+      {
+        "cve": "CVE-2026-61041",
+        "cvss": 9.9,
+        "asset_criticality": 5,
+        "epss_necesario": 0.635,
+        "epss_observado": 0.00402,
+        "gap": 0.631
+      },
+      {
+        "cve": "CVE-2026-61109",
+        "cvss": 6.5,
+        "asset_criticality": 9,
+        "epss_necesario": 0.775,
+        "epss_observado": 0.00405,
+        "gap": 0.771
+      },
+      {
+        "cve": "CVE-2026-61945",
+        "cvss": 6.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.975,
+        "epss_observado": 0.00212,
+        "gap": 0.9729
+      },
+      {
+        "cve": "CVE-2026-61975",
+        "cvss": 5.3,
+        "asset_criticality": 5,
+        "epss_necesario": 1.095,
+        "epss_observado": 0.00197,
+        "gap": 1.093
+      },
+      {
+        "cve": "CVE-2026-62186",
+        "cvss": 7.6,
+        "asset_criticality": 5,
+        "epss_necesario": 0.865,
+        "epss_observado": 0.00192,
+        "gap": 0.8631
+      },
+      {
+        "cve": "CVE-2026-63145",
+        "cvss": 4.3,
+        "asset_criticality": 5,
+        "epss_necesario": 1.195,
+        "epss_observado": 0.00161,
+        "gap": 1.1934
+      },
+      {
+        "cve": "CVE-2026-63227",
+        "cvss": 9.9,
+        "asset_criticality": 5,
+        "epss_necesario": 0.635,
+        "epss_observado": 0.00328,
+        "gap": 0.6317
+      },
+      {
+        "cve": "CVE-2026-63803",
+        "cvss": 7.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.795,
+        "epss_observado": 0.00133,
+        "gap": 0.7937
+      },
+      {
+        "cve": "CVE-2026-63846",
+        "cvss": 7.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.795,
+        "epss_observado": 0.00129,
+        "gap": 0.7937
+      },
+      {
+        "cve": "CVE-2026-64077",
+        "cvss": 7.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.795,
+        "epss_observado": 0.00127,
+        "gap": 0.7937
+      },
+      {
+        "cve": "CVE-2026-64402",
+        "cvss": 7.8,
+        "asset_criticality": 6,
+        "epss_necesario": 0.795,
+        "epss_observado": 0.00129,
+        "gap": 0.7937
+      },
+      {
+        "cve": "CVE-2026-64606",
+        "cvss": 9.8,
+        "asset_criticality": 8,
+        "epss_necesario": 0.495,
+        "epss_observado": 0.00634,
+        "gap": 0.4887
+      },
+      {
+        "cve": "CVE-2026-64615",
+        "cvss": 3.3,
+        "asset_criticality": 5,
+        "epss_necesario": 1.295,
+        "epss_observado": 0.00119,
+        "gap": 1.2938
+      },
+      {
+        "cve": "CVE-2026-64734",
+        "cvss": 5.5,
+        "asset_criticality": 5,
+        "epss_necesario": 1.075,
+        "epss_observado": 0.00135,
+        "gap": 1.0736
+      },
+      {
+        "cve": "CVE-2026-6511",
+        "cvss": 5.5,
+        "asset_criticality": 6,
+        "epss_necesario": 1.025,
+        "epss_observado": 0.00094,
+        "gap": 1.0241
+      },
+      {
+        "cve": "CVE-2026-65497",
+        "cvss": 7.2,
+        "asset_criticality": 5,
+        "epss_necesario": 0.905,
+        "epss_observado": 0.0037,
+        "gap": 0.9013
+      },
+      {
+        "cve": "CVE-2026-66373",
+        "cvss": 7.5,
+        "asset_criticality": 5,
+        "epss_necesario": 0.875,
+        "epss_observado": 0.00503,
+        "gap": 0.87
+      },
+      {
+        "cve": "CVE-2026-67340",
+        "cvss": 9.8,
+        "asset_criticality": 5,
+        "epss_necesario": 0.645,
+        "epss_observado": 0.00523,
+        "gap": 0.6398
+      },
+      {
+        "cve": "CVE-2026-7534",
+        "cvss": 7.2,
+        "asset_criticality": 6,
+        "epss_necesario": 0.855,
+        "epss_observado": 0.0019,
+        "gap": 0.8531
+      },
+      {
+        "cve": "CVE-2026-8155",
+        "cvss": 5.4,
+        "asset_criticality": 6,
+        "epss_necesario": 1.035,
+        "epss_observado": 0.00138,
+        "gap": 1.0336
+      },
+      {
+        "cve": "CVE-2026-8476",
+        "cvss": 9.9,
+        "asset_criticality": 5,
+        "epss_necesario": 0.635,
+        "epss_observado": 0.00493,
+        "gap": 0.6301
+      }
+    ]
+  },
+  "asset_correlation": {
+    "n_total": 100,
+    "tecnologia_especifica": {
+      "n": 52,
+      "pct": 52.0,
+      "categorias": {
+        "Aplicación WordPress": 10,
+        "Servidor Windows": 7,
+        "Orquestador Kubernetes": 5,
+        "Plataforma Docker": 4,
+        "Servidor Tomcat": 1,
+        "Servidor Linux": 5,
+        "Servidor Apache": 6,
+        "Base de Datos": 4,
+        "Plataforma .NET": 4,
+        "Servidor Nginx": 4,
+        "Cache Redis": 2
+      }
+    },
+    "sistema_general": {
+      "n": 48,
+      "pct": 48.0
+    },
+    "criticidad_distribucion": {
+      "5": 50,
+      "6": 22,
+      "7": 8,
+      "8": 7,
+      "9": 9,
+      "10": 4
+    },
+    "criticidad_distribucion_pct": {
+      "5": 50.0,
+      "6": 22.0,
+      "7": 8.0,
+      "8": 7.0,
+      "9": 9.0,
+      "10": 4.0
+    },
+    "muestra_A": {
+      "n": 60,
+      "sistema_general": {
+        "n": 48,
+        "pct": 80.0
+      },
+      "tecnologia_especifica": 12
+    },
+    "muestra_B": {
+      "n": 40,
+      "sistema_general": {
+        "n": 0,
+        "pct": 0.0
+      },
+      "tecnologia_especifica": 40
+    },
+    "impacto_criticidad5_vs_diferenciada": {
+      "criticidad_5": {
+        "n": 50,
+        "irc_mean": 3.6208
+      },
+      "criticidad_diferenciada": {
+        "n": 50,
+        "irc_mean": 4.2964
+      },
+      "irc_mean_global": 3.9586,
+      "irc_mean_hipotetico_flat5": 3.7286,
+      "diferencia_media_flat5_vs_real": 0.23,
+      "nota": "El IRC hipotético flat5 usa los mismos CVSS y EPSS observados, solo sustituye la criticidad por 5."
+    }
+  }
+}

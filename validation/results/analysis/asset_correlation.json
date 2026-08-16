@@ -1,0 +1,70 @@
+{
+  "n_total": 100,
+  "tecnologia_especifica": {
+    "n": 52,
+    "pct": 52.0,
+    "categorias": {
+      "Aplicación WordPress": 10,
+      "Servidor Windows": 7,
+      "Orquestador Kubernetes": 5,
+      "Plataforma Docker": 4,
+      "Servidor Tomcat": 1,
+      "Servidor Linux": 5,
+      "Servidor Apache": 6,
+      "Base de Datos": 4,
+      "Plataforma .NET": 4,
+      "Servidor Nginx": 4,
+      "Cache Redis": 2
+    }
+  },
+  "sistema_general": {
+    "n": 48,
+    "pct": 48.0
+  },
+  "criticidad_distribucion": {
+    "5": 50,
+    "6": 22,
+    "7": 8,
+    "8": 7,
+    "9": 9,
+    "10": 4
+  },
+  "criticidad_distribucion_pct": {
+    "5": 50.0,
+    "6": 22.0,
+    "7": 8.0,
+    "8": 7.0,
+    "9": 9.0,
+    "10": 4.0
+  },
+  "muestra_A": {
+    "n": 60,
+    "sistema_general": {
+      "n": 48,
+      "pct": 80.0
+    },
+    "tecnologia_especifica": 12
+  },
+  "muestra_B": {
+    "n": 40,
+    "sistema_general": {
+      "n": 0,
+      "pct": 0.0
+    },
+    "tecnologia_especifica": 40
+  },
+  "impacto_criticidad5_vs_diferenciada": {
+    "criticidad_5": {
+      "n": 50,
+      "irc_mean": 3.6208
+    },
+    "criticidad_diferenciada": {
+      "n": 50,
+      "irc_mean": 4.2964
+    },
+    "irc_mean_global": 3.9586,
+    "irc_mean_hipotetico_flat5": 3.7286,
+    "diferencia_media_flat5_vs_real": 0.23,
+    "nota": "El IRC hipotético flat5 usa los mismos CVSS y EPSS observados, solo sustituye la criticidad por 5."
+  }
+}
