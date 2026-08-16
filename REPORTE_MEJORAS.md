@@ -39,8 +39,9 @@
 - `backend/app/main.py` + `backend/app/routers/__init__.py` — router `trazabilidad` registrado.
 
 ### Tests
-- `backend/tests/test_ingestion_and_notifications.py` — **7 tests nuevos** (trazabilidad, resumen, auth, email alta/baja criticidad, fallo SMTP no rompe, sin SMTP saltea, reasignación envía).
-- Suite completa: **58 tests, todos pasan** (`pytest -q` en `backend/`).
+- `backend/tests/test_ingestion_and_notifications.py` — **8 tests nuevos** (trazabilidad de timestamps, resumen de detección, auth, email alta/baja criticidad, fallo SMTP no rompe, sin SMTP saltea, reasignación envía).
+- `backend/tests/test_traceability.py` — **5 tests nuevos** (traza completa, IRC/severidad null sin EPSS, estado de procesamiento por defecto, persistencia de campos por webhook, rechazo de IRC inválido).
+- Suite completa: **58 tests, todos pasan** — desglose verificado: **45 pre-existentes + 8 (ingestión/notificaciones) + 5 (trazabilidad) = 58** (`pytest -q` en `backend/`).
 
 ---
 

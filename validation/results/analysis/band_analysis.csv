@@ -1,0 +1,5 @@
+band,n,cvss_mean,epss_mean,irc_mean,irc_min,irc_max,severity_distribution,same_category,baja,sube
+Critical,18,9.6944,0.005719,5.0344,4.65,5.84,"{'Media': 13, 'Alta': 5}",0,18,0
+High,37,7.827,0.003801,4.4862,3.85,5.37,"{'Media': 31, 'Alta': 6}",6,31,0
+Medium,30,5.64,0.002375,3.5123,2.73,4.62,{'Media': 30},30,0,0
+Low,15,3.0267,0.001785,2.2587,1.97,2.69,"{'Baja': 14, 'Media': 1}",14,0,1

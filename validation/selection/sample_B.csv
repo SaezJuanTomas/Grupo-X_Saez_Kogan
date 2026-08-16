@@ -1,0 +1,41 @@
+cve,cvss,severity_band,category,matched_keyword,selected_reason,sample
+CVE-2026-14820,5.3,Medium,Aplicación WordPress,wordpress,B-categoria:Aplicación WordPress,B
+CVE-2026-15005,8.8,High,Aplicación WordPress,wordpress,B-categoria:Aplicación WordPress,B
+CVE-2026-15662,6.4,Medium,Aplicación WordPress,wordpress,B-categoria:Aplicación WordPress,B
+CVE-2026-16042,4.3,Medium,Aplicación WordPress,wordpress,B-categoria:Aplicación WordPress,B
+CVE-2026-16105,4.9,Medium,Plataforma Docker,container,B-categoria:Plataforma Docker,B
+CVE-2026-18047,6.5,Medium,Servidor Tomcat,tomcat,B-categoria:Servidor Tomcat,B
+CVE-2026-18381,7.6,High,Orquestador Kubernetes,kubernetes,B-categoria:Orquestador Kubernetes,B
+CVE-2026-34150,7.5,High,Plataforma Docker,docker,B-categoria:Plataforma Docker,B
+CVE-2026-45737,6.3,Medium,Orquestador Kubernetes,kubernetes,B-categoria:Orquestador Kubernetes,B
+CVE-2026-47295,8.8,High,Base de Datos,sql server,B-categoria:Base de Datos,B
+CVE-2026-47296,7.5,High,Base de Datos,sql server,B-categoria:Base de Datos,B
+CVE-2026-48206,5.3,Medium,Servidor Apache,apache,B-categoria:Servidor Apache,B
+CVE-2026-49798,9.3,Critical,Servidor Windows,windows,B-categoria:Servidor Windows,B
+CVE-2026-50273,7.5,High,Plataforma .NET,.net,B-categoria:Plataforma .NET,B
+CVE-2026-50327,7.8,High,Servidor Windows,windows,B-categoria:Servidor Windows,B
+CVE-2026-50362,7.8,High,Servidor Windows,windows,B-categoria:Servidor Windows,B
+CVE-2026-50506,7.5,High,Plataforma .NET,.net,B-categoria:Plataforma .NET,B
+CVE-2026-50650,7.8,High,Plataforma .NET,.net,B-categoria:Plataforma .NET,B
+CVE-2026-54118,8.8,High,Base de Datos,sql server,B-categoria:Base de Datos,B
+CVE-2026-54422,5.5,Medium,Plataforma Docker,container,B-categoria:Plataforma Docker,B
+CVE-2026-54652,8.1,High,Servidor Nginx,nginx,B-categoria:Servidor Nginx,B
+CVE-2026-55254,4.8,Medium,Plataforma .NET,.net,B-categoria:Plataforma .NET,B
+CVE-2026-55433,5.4,Medium,Plataforma Docker,container,B-categoria:Plataforma Docker,B
+CVE-2026-55723,8.3,High,Servidor Nginx,nginx,B-categoria:Servidor Nginx,B
+CVE-2026-55994,7.5,High,Servidor Apache,apache,B-categoria:Servidor Apache,B
+CVE-2026-56163,10.0,Critical,Orquestador Kubernetes,kubernetes,B-categoria:Orquestador Kubernetes,B
+CVE-2026-56434,6.5,Medium,Servidor Nginx,nginx,B-categoria:Servidor Nginx,B
+CVE-2026-59219,7.1,High,Cache Redis,redis,B-categoria:Cache Redis,B
+CVE-2026-59245,8.1,High,Servidor Apache,apache,B-categoria:Servidor Apache,B
+CVE-2026-60005,8.2,High,Servidor Nginx,nginx,B-categoria:Servidor Nginx,B
+CVE-2026-60401,6.5,Medium,Orquestador Kubernetes,kubernetes,B-categoria:Orquestador Kubernetes,B
+CVE-2026-61109,6.5,Medium,Base de Datos,mysql,B-categoria:Base de Datos,B
+CVE-2026-63803,7.8,High,Servidor Linux,linux,B-categoria:Servidor Linux,B
+CVE-2026-63846,7.8,High,Servidor Linux,linux,B-categoria:Servidor Linux,B
+CVE-2026-64077,7.8,High,Servidor Linux,linux,B-categoria:Servidor Linux,B
+CVE-2026-64402,7.8,High,Servidor Linux,linux,B-categoria:Servidor Linux,B
+CVE-2026-64606,9.8,Critical,Servidor Apache,apache,B-categoria:Servidor Apache,B
+CVE-2026-6511,5.5,Medium,Servidor Windows,windows,B-categoria:Servidor Windows,B
+CVE-2026-66373,7.5,High,Cache Redis,redis,B-categoria:Cache Redis,B
+CVE-2026-8155,5.4,Medium,Aplicación WordPress,wordpress,B-categoria:Aplicación WordPress,B

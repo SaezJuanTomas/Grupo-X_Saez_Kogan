@@ -1,0 +1,3 @@
+sample,n,cvss_mean,epss_mean,irc_mean,severity_distribution,asset_criticality_distribution,sistema_general_count,tecnologias_detectadas_count,divergencias_cvss_vs_irc,cvss_band_distribution
+A,60,6.5183,0.002932,3.6823,"{""Media"": 43, ""Baja"": 14, ""Alta"": 3}","{""5"": 48, ""6"": 9, ""8"": 2, ""9"": 1}",48,12,30,"{""Medium"": 15, ""Low"": 15, ""High"": 15, ""Critical"": 15}"
+B,40,7.19,0.004143,4.373,"{""Media"": 32, ""Alta"": 8}","{""5"": 2, ""6"": 13, ""7"": 8, ""8"": 5, ""9"": 8, ""10"": 4}",0,40,20,"{""Medium"": 15, ""High"": 22, ""Critical"": 3}"

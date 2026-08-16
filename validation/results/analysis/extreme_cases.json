@@ -1,0 +1,291 @@
+{
+  "top10_irc": [
+    {
+      "cve": "CVE-2026-56163",
+      "sample": "B",
+      "cvss": 10.0,
+      "epss": 0.00901,
+      "asset_criticality": 9,
+      "correlated_asset": "Orquestador Kubernetes",
+      "irc": 5.84,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-44182",
+      "sample": "A",
+      "cvss": 10.0,
+      "epss": 0.00498,
+      "asset_criticality": 8,
+      "correlated_asset": "Servidor Apache",
+      "irc": 5.62,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-64606",
+      "sample": "B",
+      "cvss": 9.8,
+      "epss": 0.00634,
+      "asset_criticality": 8,
+      "correlated_asset": "Servidor Apache",
+      "irc": 5.55,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-15416",
+      "sample": "A",
+      "cvss": 8.9,
+      "epss": 0.00281,
+      "asset_criticality": 9,
+      "correlated_asset": "Orquestador Kubernetes",
+      "irc": 5.37,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-54118",
+      "sample": "B",
+      "cvss": 8.8,
+      "epss": 0.01288,
+      "asset_criticality": 9,
+      "correlated_asset": "Base de Datos",
+      "irc": 5.37,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-47295",
+      "sample": "B",
+      "cvss": 8.8,
+      "epss": 0.00922,
+      "asset_criticality": 9,
+      "correlated_asset": "Base de Datos",
+      "irc": 5.36,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-55723",
+      "sample": "B",
+      "cvss": 8.3,
+      "epss": 0.00293,
+      "asset_criticality": 10,
+      "correlated_asset": "Servidor Nginx",
+      "irc": 5.33,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-60005",
+      "sample": "B",
+      "cvss": 8.2,
+      "epss": 0.0071,
+      "asset_criticality": 10,
+      "correlated_asset": "Servidor Nginx",
+      "irc": 5.31,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-54652",
+      "sample": "B",
+      "cvss": 8.1,
+      "epss": 0.00231,
+      "asset_criticality": 10,
+      "correlated_asset": "Servidor Nginx",
+      "irc": 5.25,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-16256",
+      "sample": "A",
+      "cvss": 9.8,
+      "epss": 0.00303,
+      "asset_criticality": 6,
+      "correlated_asset": "Aplicación WordPress",
+      "irc": 5.13,
+      "severity": "Alta"
+    }
+  ],
+  "bottom10_irc": [
+    {
+      "cve": "CVE-2026-10668",
+      "sample": "A",
+      "cvss": 2.4,
+      "epss": 0.00159,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 1.97,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2026-16218",
+      "sample": "A",
+      "cvss": 2.6,
+      "epss": 0.002,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 2.05,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2026-47032",
+      "sample": "A",
+      "cvss": 2.6,
+      "epss": 0.00224,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 2.05,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2026-41709",
+      "sample": "A",
+      "cvss": 2.7,
+      "epss": 0.00382,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 2.1,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2026-41514",
+      "sample": "A",
+      "cvss": 2.5,
+      "epss": 0.00095,
+      "asset_criticality": 6,
+      "correlated_asset": "Servidor Linux",
+      "irc": 2.2,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2026-17826",
+      "sample": "A",
+      "cvss": 3.1,
+      "epss": 0.00174,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 2.25,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2026-17957",
+      "sample": "A",
+      "cvss": 3.1,
+      "epss": 0.00146,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 2.25,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2026-60939",
+      "sample": "A",
+      "cvss": 3.1,
+      "epss": 0.00237,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 2.25,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2026-14214",
+      "sample": "A",
+      "cvss": 2.7,
+      "epss": 0.00168,
+      "asset_criticality": 6,
+      "correlated_asset": "Aplicación WordPress",
+      "irc": 2.29,
+      "severity": "Baja"
+    },
+    {
+      "cve": "CVE-2025-15668",
+      "sample": "A",
+      "cvss": 3.3,
+      "epss": 0.00124,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 2.32,
+      "severity": "Baja"
+    }
+  ],
+  "max_epss": {
+    "cve": "CVE-2026-49798",
+    "sample": "B",
+    "cvss": 9.3,
+    "epss": 0.02287,
+    "asset_criticality": 6,
+    "correlated_asset": "Servidor Windows",
+    "irc": 5.01,
+    "severity": "Alta"
+  },
+  "min_epss": {
+    "cve": "CVE-2026-6511",
+    "sample": "B",
+    "cvss": 5.5,
+    "epss": 0.00094,
+    "asset_criticality": 6,
+    "correlated_asset": "Servidor Windows",
+    "irc": 3.4,
+    "severity": "Media"
+  },
+  "max_diferencia_cvss_vs_irc": {
+    "cve": "CVE-2026-63227",
+    "sample": "A",
+    "cvss": 9.9,
+    "epss": 0.00328,
+    "asset_criticality": 5,
+    "correlated_asset": "Sistema General",
+    "irc": 4.97,
+    "severity": "Media",
+    "diferencia": 4.93
+  },
+  "cvss_10": [
+    {
+      "cve": "CVE-2026-44182",
+      "sample": "A",
+      "cvss": 10.0,
+      "epss": 0.00498,
+      "asset_criticality": 8,
+      "correlated_asset": "Servidor Apache",
+      "irc": 5.62,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-56163",
+      "sample": "B",
+      "cvss": 10.0,
+      "epss": 0.00901,
+      "asset_criticality": 9,
+      "correlated_asset": "Orquestador Kubernetes",
+      "irc": 5.84,
+      "severity": "Alta"
+    }
+  ],
+  "epss_alto_muestra": [
+    {
+      "cve": "CVE-2026-49798",
+      "sample": "B",
+      "cvss": 9.3,
+      "epss": 0.02287,
+      "asset_criticality": 6,
+      "correlated_asset": "Servidor Windows",
+      "irc": 5.01,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-54118",
+      "sample": "B",
+      "cvss": 8.8,
+      "epss": 0.01288,
+      "asset_criticality": 9,
+      "correlated_asset": "Base de Datos",
+      "irc": 5.37,
+      "severity": "Alta"
+    },
+    {
+      "cve": "CVE-2026-56688",
+      "sample": "A",
+      "cvss": 9.1,
+      "epss": 0.01199,
+      "asset_criticality": 5,
+      "correlated_asset": "Sistema General",
+      "irc": 4.69,
+      "severity": "Media"
+    }
+  ]
+}

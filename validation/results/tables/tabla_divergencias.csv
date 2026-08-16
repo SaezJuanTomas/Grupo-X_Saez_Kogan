@@ -1,0 +1,8 @@
+﻿severity_cvss,severity_irc,cantidad,porcentaje,tipo
+Alta,Media,31,"31,0",baja
+Media,Media,30,"30,0",igual
+Baja,Baja,14,"14,0",igual
+Critica,Media,13,"13,0",baja
+Alta,Alta,6,"6,0",igual
+Critica,Alta,5,"5,0",baja
+Baja,Media,1,"1,0",sube

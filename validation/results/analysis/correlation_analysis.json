@@ -1,0 +1,29 @@
+{
+  "nota": "Correlaciones DESCRIPTIVAS sobre los 100 resultados; no implican causalidad.",
+  "pares": [
+    {
+      "x": "CVSS",
+      "y": "IRC",
+      "pearson": 0.9533,
+      "spearman": 0.9378
+    },
+    {
+      "x": "CVSS",
+      "y": "EPSS",
+      "pearson": 0.4438,
+      "spearman": 0.5898
+    },
+    {
+      "x": "EPSS",
+      "y": "IRC",
+      "pearson": 0.4759,
+      "spearman": 0.6384
+    },
+    {
+      "x": "Asset Criticality",
+      "y": "IRC",
+      "pearson": 0.4947,
+      "spearman": 0.4314
+    }
+  ]
+}

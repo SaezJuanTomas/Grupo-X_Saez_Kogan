@@ -1,0 +1,27 @@
+{
+  "run_id": "etapa3",
+  "run_version": "3.0.0",
+  "description": "Etapa 3 - corrida experimental principal sobre final_sample_100.csv",
+  "start_time": "2026-08-11T17:25:57+00:00",
+  "end_time": "2026-08-11T17:26:15+00:00",
+  "duration_seconds": 18.37,
+  "totals": {
+    "total": 100,
+    "success": 100,
+    "no_epss": 0,
+    "error": 0,
+    "skipped": 0
+  },
+  "input_file": "C:\\Programación\\TESIS - Grupo X (Saez & Kogan)\\validation\\selection\\final_sample_100.csv",
+  "input_file_sha256": "287cc762f8fce739ad313ba31098b0892c7a0ca552cd50656f23940cda3e7cef",
+  "epss_source": "https://api.first.org/data/v1/epss",
+  "epss_batch_size": 100,
+  "epss_found": 100,
+  "epss_missing": 0,
+  "formula": "IRC = (CVSS * 0.4) + (EPSS * 10 * 0.4) + (Asset Criticality * 0.2)",
+  "severity_thresholds": ">=7.5 Critica; >=5.0 Alta; >=2.5 Media; else Baja",
+  "asset_correlation": "keywords del nodo Asset Correlation (orden n8n)",
+  "company_assignment": "Assign Analyst: mejor score; sin match -> primera empresa activa (nombre asc)",
+  "persistence": "POST /webhook/n8n/vulnerabilidades -> PostgreSQL grupo_x",
+  "companies_count": 5
+}

@@ -1,919 +1,1627 @@
-================================================================================
-  GRUPO X – SISTEMA DE GESTIÓN DE VULNERABILIDADES
-  DOCUMENTO COMPLETO DEL PROYECTO IMPLEMENTADO
-  (Para cotejar con PDF de tesis)
-================================================================================
-
-INDICE
-  1. DESCRIPCION GENERAL
-  2. ARQUITECTURA
-  3. STACK TECNOLOGICO
-  4. MODELO DE DATOS (6 tablas)
-  5. ENDPOINTS DE LA API (30 endpoints)
-  6. SISTEMA DE AUTENTICACION
-  7. ARQUITECTURA DE CAPAS (BACKEND)
-  8. MODULOS CORE
-  9. SEED DATA
-  10. FRONTEND
-  11. TESTS (40 tests)
-  12. INTEGRACION N8N
-  13. CONFIGURACION Y ENTORNO
-  14. DIAGRAMA DE FLUJO DE AUTENTICACION
-  15. ESTRUCTURA DE ARCHIVOS COMPLETA
-
-
-================================================================================
-1. DESCRIPCION GENERAL
-================================================================================
-
-Aplicacion web full-stack para la gestion de vulnerabilidades de seguridad
-informatica. El sistema permite a equipos de seguridad registrar, clasificar,
-asignar, dar seguimiento y reportar vulnerabilidades en empresas clientes.
-
-Casos de uso principales:
-  - Admin: CRUD completo de vulnerabilidades, empresas, usuarios;
-           dashboard de estadisticas; asignacion a analistas
-  - Analyst: visualizar sus vulnerabilidades asignadas, agregar comentarios
-  - Sistema: refresh tokens con rotacion, historial de cambios automatico,
-             rate limiting, integracion con n8n para NVD
-
-
-================================================================================
-2. ARQUITECTURA
-================================================================================
-
-Frontend (React + Vite) ----HTTP----> Backend (FastAPI) ----SQL----> PostgreSQL
-
-  - Frontend: http://localhost:5173
-  - Backend:  http://localhost:8000
-  - Backend API: http://localhost:8000/docs (Swagger UI)
-
-Patron de capas en backend:
-  Router (HTTP) -> Service (logica de negocio) -> Repository (base de datos)
-
-Flujo tipico de request:
-  Request HTTP
-    -> LoggingMiddleware (request ID + timing)
-    -> SlowAPIMiddleware (rate limiting)
-    -> CORSMiddleware
-    -> Exception Handlers (errores globales)
-    -> Router -> Service -> Repository -> SQLAlchemy -> DB
-
-
-================================================================================
-3. STACK TECNOLOGICO
-================================================================================
-
-BACKEND:
-  - Python 3.11
-  - FastAPI (framework web ASGI)
-  - SQLAlchemy 2.0 (ORM)
-  - PostgreSQL (produccion)
-  - SQLite (tests, in-memory)
-  - Pydantic v2 (validacion de schemas)
-  - python-jose (JWT tokens)
-  - passlib + bcrypt (hashing de passwords)
-  - slowapi (rate limiting)
-  - uvicorn (servidor ASGI)
-
-FRONTEND:
-  - React 19
-  - TypeScript
-  - Vite (bundler)
-  - React Router v6 (ruteo)
-  - Axios (HTTP client)
-  - Tailwind CSS (estilos)
-
-HERRAMIENTAS:
-  - n8n (automatizacion NVD)
-  - Docker (contenedores)
-  - pytest (testing)
-
-
-================================================================================
-4. MODELO DE DATOS
-================================================================================
-
-TABLA: users
-  id                Integer        PK, autoincrement, index
-  username          String(100)    UNIQUE, NOT NULL, index
-  email             String(255)    NOT NULL
-  role              Enum           UserRole (admin|analyst|viewer), index
-  password          String(255)    NOT NULL (hash bcrypt)
-  active            Boolean        default=True, index
-  token_version     Integer        default=0 (para revocacion de JWTs)
-  latest_activity   String(255)    default="Actividad inicial"
-  created_at        DateTime       default=utcnow, NOT NULL
-  updated_at        DateTime       default=utcnow, onupdate=utcnow, NOT NULL
-
-  Relaciones:
-    vulnerabilities (as analyst) -> Vulnerability.assigned_analyst_id
-    comments                      -> Comment.author_id
-    history_logs                  -> HistoryLog.actor_id
-
-TABLA: companies
-  id                Integer        PK, autoincrement, index
-  name              String(255)    NOT NULL
-  sector            String(255)    NOT NULL
-  contact           String(255)    NOT NULL
-  technologies      JSON           default=[]
-  assigned_analyst_id Integer      FK -> users.id, NULLABLE
-  created_at        DateTime       default=utcnow, NOT NULL
-  updated_at        DateTime       default=utcnow, onupdate=utcnow, NOT NULL
-
-  Relaciones:
-    vulnerabilities -> Vulnerability.company_id
-
-TABLA: vulnerabilities
-  id                Integer        PK, autoincrement, index
-  cve               String(50)     NOT NULL, index
-  description       Text           NOT NULL
-  affected_technology String(255)  NULLABLE
-  irc               Float          NOT NULL (rango 0-10)
-  severity          Enum           Severity (Critica|Alta|Media|Baja), index
-  status            Enum           VulnerabilityStatus (Pendiente|En progreso|Resuelto|Cerrado), index
-  company_id        Integer        FK -> companies.id, NOT NULL, index
-  assigned_analyst_id Integer      FK -> users.id, NULLABLE, index
-  created_at        DateTime       default=utcnow, NOT NULL
-  updated_at        DateTime       default=utcnow, onupdate=utcnow, NOT NULL
-
-  Indices adicionales:
-    ix_vulnerabilities_created_at (created_at)
-    ix_vulnerabilities_irc (irc)
-
-  Relaciones:
-    company     -> Company
-    analyst     -> User
-    comments    -> Comment (cascade delete)
-    history_logs -> HistoryLog (cascade delete)
-
-TABLA: comments
-  id                Integer        PK, autoincrement, index
-  vulnerability_id  Integer        FK -> vulnerabilities.id, NOT NULL, index
-  author_id         Integer        FK -> users.id, NOT NULL, index
-  text              Text           NOT NULL
-  created_at        DateTime       default=utcnow, NOT NULL
-
-  (cascade delete cuando se elimina la vulnerability)
-
-TABLA: history_logs
-  id                Integer        PK, autoincrement, index
-  vulnerability_id  Integer        FK -> vulnerabilities.id, NOT NULL, index
-  actor_id          Integer        FK -> users.id, NULLABLE, index
-  action            String(100)    NOT NULL (ej: "Creado", "Asignado", "Estado cambiado")
-  detail            String(500)    NOT NULL
-  ip_address        String(50)     NULLABLE
-  created_at        DateTime       default=utcnow, NOT NULL, index
-
-  (cascade delete cuando se elimina la vulnerability)
-
-TABLA: refresh_tokens
-  id                Integer        PK, autoincrement, index
-  jti               String(255)    UNIQUE, NOT NULL, index (UUID v4)
-  user_id           Integer        FK -> users.id, NOT NULL, index
-  expires_at        DateTime       NOT NULL
-  revoked           Boolean        default=False
-  created_at        DateTime       default=utcnow, NOT NULL
-
-ENUMS:
-  UserRole:           ["admin", "analyst", "viewer"]
-  Severity:           ["Critica", "Alta", "Media", "Baja"]
-  VulnerabilityStatus: ["Pendiente", "En progreso", "Resuelto", "Cerrado"]
-
-
-================================================================================
-5. ENDPOINTS DE LA API
-================================================================================
-
-AUTH (router: auth_router.py)
---------------------------------------------------
-  POST   /auth/login
-         Body:     { "username": str, "password": str }
-         Response: { "access_token": str, "refresh_token": str, "token_type": "bearer",
-                      "user_id": int, "username": str, "role": str }
-         Rate limit: 5/minuto por IP
-         Auth: none
-
-  POST   /auth/refresh
-         Body:     { "refresh_token": str }
-         Response: { "access_token": str, "refresh_token": str, "token_type": "bearer" }
-         Detalle: Invalida el refresh token anterior (rotacion)
-         Auth: none (usa el refresh token)
-
-  POST   /auth/logout
-         Response: { "message": "Sesion cerrada" }
-         Accion: Revoca todos los refresh tokens del usuario
-                 Incrementa token_version (invalida access tokens)
-         Auth: Bearer token
-
-  GET    /auth/me
-         Response: { "id": int, "username": str, "email": str, "role": str, "active": bool }
-         Auth: Bearer token
-
-  GET    /health
-         Response: { "status": "ok", "database": "ok"|"error", "version": "2.0.0" }
-         Auth: none
-
-
-VULNERABILIDADES (router: vulnerability_router.py)
---------------------------------------------------
-  GET    /vulnerabilidades
-         Query:  ?role=str&user_id=int&page=int&page_size=int
-         Response: list[VulnerabilityRead]
-         Auth: Bearer token
-
-  GET    /vulnerabilidades/{id}
-         Response: VulnerabilityRead (con company embebida)
-         Auth: Bearer token
-
-  POST   /vulnerabilidades
-         Body: VulnerabilityCreate
-         Status: 201
-         Auth: Bearer token + admin
-
-  PATCH  /vulnerabilidades/{id}
-         Body: VulnerabilityUpdate
-         Response: VulnerabilityRead
-         Detalle: Solo admin puede cambiar status o assigned_analyst_id
-                  Genera automaticamente entradas en history_logs
-         Auth: Bearer token
-
-  DELETE /vulnerabilidades/{id}
-         Response: { "message": "Vulnerabilidad eliminada" }
-         Detalle: Cascade delete a comments e history_logs asociados
-         Auth: Bearer token + admin
-
-
-EMPRESAS (router: company_router.py)
---------------------------------------------------
-  GET    /empresas
-         Response: list[CompanyRead]
-         Auth: Bearer token
-
-  GET    /empresas/{id}
-         Response: CompanyRead
-         Auth: Bearer token
-
-  POST   /empresas
-         Body: CompanyBase
-         Status: 201
-         Detalle: Asigna automaticamente el primer analyst disponible
-                  Dispara webhook a n8n para fetch de NVD
-         Auth: Bearer token + admin
-
-  PATCH  /empresas/{id}
-         Body: CompanyUpdate
-         Auth: Bearer token + admin
-
-
-COMENTARIOS (router: comment_router.py)
---------------------------------------------------
-  GET    /comentarios
-         Query: ?vulnerability_id=int
-         Response: list[CommentRead]
-         Auth: Bearer token
-
-  POST   /vulnerabilidades/{id}/comentarios
-         Body: CommentCreate
-         Status: 201
-         Detalle: Registra automaticamente en history_logs
-         Auth: Bearer token
-
-
-HISTORIAL (router: history_router.py)
---------------------------------------------------
-  GET    /historial
-         Query: ?vulnerability_id=int
-         Response: list[HistoryLogRead]
-         Auth: Bearer token
-
-
-ESTADISTICAS (router: statistics_router.py)
---------------------------------------------------
-  GET    /estadisticas
-         Response: DashboardStats {
-           "critical": int, "pending": int, "resolved": int,
-           "active_users": int, "severity_counts": dict,
-           "status_counts": dict, "analyst_activity": list,
-           "irc_distribution": { "0-3": int, "3-6": int, "6-8": int, "8-10": int }
-         }
-         Auth: Bearer token
-
-  GET    /estadisticas/tendencias
-         Query: ?days=int (default 7, max 90)
-         Response: { "created": [TrendPoint], "resolved": [TrendPoint] }
-         TrendPoint: { "date": str (YYYY-MM-DD), "count": int }
-         Auth: Bearer token
-
-
-WEBHOOKS N8N (router: n8n_router.py, prefijo: /webhook/n8n)
---------------------------------------------------
-  GET    /webhook/n8n/empresas
-         Response: list[CompanyRead]
-         Auth: X-API-Key header
-
-  POST   /webhook/n8n/vulnerabilidades
-         Body: VulnerabilityCreate
-         Status: 201
-         Auth: X-API-Key header
-
-  GET    /webhook/n8n/vulnerabilidades/existe
-         Query: ?cve=str
-         Response: { "exists": bool }
-         Auth: X-API-Key header
-
-
-================================================================================
-6. SISTEMA DE AUTENTICACION
-================================================================================
-
-6.1 JWT Access Token
-  - Algoritmo: HS256
-  - Payload: { sub: user_id, role: str, type: "access", ver: token_version, exp: timestamp }
-  - Duracion: 30 minutos (configurable via ACCESS_TOKEN_EXPIRE_MINUTES)
-  - Incluye "ver" (token_version) para permitir revocacion
-
-6.2 Refresh Token
-  - Payload: { sub: user_id, jti: UUID, type: "refresh", exp: timestamp }
-  - Duracion: 7 dias (configurable via REFRESH_TOKEN_EXPIRE_DAYS)
-  - Almacenado en tabla refresh_tokens con jti unico
-  - Rotacion: cada uso invalida el anterior (revoked=True)
-  - Reuso detectado: si se usa un refresh token ya revocado, se rechaza
-
-6.3 Flujo de login
-  1. POST /auth/login con { username, password }
-  2. Verificar password con bcrypt
-  3. Verificar que el usuario este activo
-  4. Generar access_token (JWT con token_version actual)
-  5. Generar refresh_token (JWT + registro en DB)
-  6. Devolver ambos tokens + datos del usuario
-
-6.4 Flujo de refresh
-  1. POST /auth/refresh con { refresh_token }
-  2. Decodificar JWT, verificar tipo "refresh"
-  3. Buscar RefreshToken por jti, que no este revocado y no haya expirado
-  4. Marcar como revoked=True
-  5. Generar NUEVO par access_token + refresh_token
-  6. Devolver nuevos tokens
-
-6.5 Flujo de logout
-  1. POST /auth/logout con Bearer token
-  2. Revocar todos los refresh_token activos del usuario (revoked=True)
-  3. Incrementar token_version del usuario (invalida todos sus access tokens previos)
-
-6.6 Verificacion de acceso (get_current_user)
-  1. Extraer Bearer token del header Authorization
-  2. Decodificar JWT, verificar tipo "access"
-  3. Obtener user_id del payload
-  4. Cargar usuario de DB
-  5. Verificar que el usuario exista y este activo
-  6. Verificar que token_version del JWT coincida con el del usuario
-     (si no coincide, el token fue emitido antes de un logout y esta revocado)
-
-6.7 Jerarquia de permisos
-  - get_current_user: cualquier usuario autenticado (incluyendo viewer)
-  - require_admin: solo rol "admin"
-  - require_analyst: roles "admin" o "analyst"
-
-
-================================================================================
-7. ARQUITECTURA DE CAPAS (BACKEND)
-================================================================================
-
-7.1 CAPA DE ROUTERS (app/routers/)
-  auth_router.py        -> AuthService (login)
-  user_router.py        -> UserService
-  vulnerability_router.py -> VulnerabilityService
-  company_router.py     -> CompanyService
-  statistics_router.py  -> StatisticsService
-  comment_router.py     -> VulnerabilityService (add_comment)
-  history_router.py     -> HistoryRepository (directo)
-  n8n_router.py         -> VulnerabilityService, CompanyRepository (directo)
-
-  Responsabilidades:
-    - Definir rutas y metodos HTTP
-    - Inyectar dependencias (db, current_user)
-    - Validar permisos via require_admin / require_analyst
-    - Validar request body via Pydantic schemas
-    - Delegar logica a servicios
-    - Manejar respuestas HTTP (status codes, serializacion)
-
-7.2 CAPA DE SERVICIOS (app/services/)
-  AuthService
-    - login(username, password) -> User | None
-    - create_user(...) -> User
-
-  UserService
-    - list_users() -> list[dict] (incluye assigned_vulnerabilities count)
-    - create_user(username, email, role, password) -> User
-    - update_user(user_id, changes) -> dict | None
-
-  VulnerabilityService
-    - list_vulnerabilities(role, user_id, page, page_size) -> list[Vulnerability]
-    - get_vulnerability(id) -> Vulnerability | None
-    - create_vulnerability(**kwargs) -> Vulnerability (crea history_log)
-    - update_vulnerability(id, changes, actor_id) -> Vulnerability | None (crea history_logs)
-    - delete_vulnerability(id) -> bool
-    - add_comment(vulnerability_id, author_id, text) -> Comment (crea history_log)
-
-  CompanyService
-    - list_companies() -> list[Company]
-    - get_company(id) -> Company | None
-    - create_company(**kwargs) -> Company (asigna analyst por defecto, trigger n8n)
-    - update_company(id, changes) -> Company | None
-
-  StatisticsService
-    - get_dashboard_stats() -> dict (severity_counts, status_counts, analyst_activity, etc.)
-    - (trends se calcula directamente en el router)
-
-7.3 CAPA DE REPOSITORIOS (app/repositories/)
-  UserRepository
-    - list_all() -> list[User]
-    - get_by_id(id) -> User | None
-    - get_by_username(username) -> User | None
-    - create(**kwargs) -> User
-    - update(user, **kwargs) -> User
-    - count_active() -> int
-    - get_first_analyst() -> User | None
-
-  VulnerabilityRepository
-    - list_all(role, user_id, page, page_size) -> list[Vulnerability] (con joinedload company, analyst)
-    - get_by_id(id) -> Vulnerability | None (con joinedload)
-    - get_by_cve(cve) -> Vulnerability | None
-    - create(**kwargs) -> Vulnerability
-    - update(vulnerability, **kwargs) -> Vulnerability
-    - delete(vulnerability) -> None
-    - count_by_analyst(user_id) -> int
-    - count_by_analysts(user_ids) -> dict[int, int]
-    - count_high_irc(threshold) -> int
-    - count_in_range(lo, hi) -> int
-    - get_all() -> list[Vulnerability]
-
-  CompanyRepository
-    - list_all() -> list[Company]
-    - get_by_id(id) -> Company | None
-    - create(**kwargs) -> Company
-    - update(company, **kwargs) -> Company
-
-  CommentRepository
-    - list_by_vulnerability(vulnerability_id) -> list[Comment]
-    - create(**kwargs) -> Comment
-
-  HistoryRepository
-    - list_by_vulnerability(vulnerability_id) -> list[HistoryLog]
-    - create(**kwargs) -> HistoryLog
-    - count_by_actor(actor_id) -> int
-
-7.4 FLUJO TIPICO (ej: crear vulnerabilidad)
-  POST /vulnerabilidades (admin)
-    => vulnerability_router.create_vulnerability()
-      => require_admin (verifica token + rol admin)
-      => VulnerabilityService.create_vulnerability(...)
-        => VulnerabilityRepository.create(...)  [INSERT en DB]
-        => HistoryRepository.create(...)        [INSERT en history_logs]
-        => flush()
-      => return VulnerabilityRead
-
-7.5 FLUJO DE ACTUALIZACION CON AUDITORIA (ej: cambiar estado)
-  PATCH /vulnerabilidades/1 { "status": "Resuelto" }
-    => vulnerability_router.update_vulnerability()
-      => get_current_user()  [verifica token]
-      => verifica si cambia status o assignee y si es admin
-      => VulnerabilityService.update_vulnerability(1, changes, actor_id=user.id)
-        => VulnerabilityRepository.get_by_id(1)
-        => guarda previous_status y previous_assignee
-        => VulnerabilityRepository.update(vuln, status="Resuelto")
-        => si cambia status: HistoryRepository.create(action="Estado cambiado", ...)
-        => si cambia assignee: HistoryRepository.create(action="Asignado", ...)
-        => flush()
-      => return VulnerabilityRead
-
-
-================================================================================
-8. MODULOS CORE
-================================================================================
-
-8.1 config.py
-  Config(BaseSettings):
-    DATABASE_URL              = "postgresql://postgres:postgres@localhost:5435/grupo_x"
-    SECRET_KEY                = "change-me-in-production"
-    ALGORITHM                 = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES = 30
-    REFRESH_TOKEN_EXPIRE_DAYS = 7
-    CORS_ORIGINS              = ["http://localhost:5173", "http://127.0.0.1:5173"]
-    RATE_LIMIT_LOGIN          = "5/15minutes"
-    N8N_API_KEY               = "change-me-n8n-api-key"
-    N8N_WEBHOOK_URL           = "http://localhost:5678/webhook/trigger-nvd-fetch"
-    NVD_API_KEY               = ""
-    LOG_LEVEL                 = "INFO"
-    (lee tambien de .env, extra ignorado)
-
-8.2 database.py
-    engine = create_engine(config.DATABASE_URL, pool_pre_ping=True)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    Base = declarative_base()
-    get_db() -> Session (yield, commit/rollback, close)
-
-8.3 deps.py
-    bearer_scheme = HTTPBearer()
-    get_current_user()  -> User (valida JWT, token_version, active)
-    require_role(*roles) -> User
-    require_admin       -> require_role("admin")
-    require_analyst     -> require_role("admin", "analyst")
-
-8.4 exceptions.py
-    AppError( Exception ): message, code, status_code
-      ResourceNotFoundError     -> 404, "not_found"
-      DuplicateResourceError    -> 409, "duplicate"
-      BusinessRuleError         -> 400, "business_rule_violation"
-      AuthenticationError       -> 401, "authentication_error"
-      AuthorizationError        -> 403, "authorization_error"
-
-    Exception Handlers registrados:
-      AppError            -> JSONResponse con { error: { code, message } }
-      HTTPException       -> JSONResponse con code mapeado (400->bad_request, 401->authentication_error, etc.)
-      RequestValidationError -> JSONResponse 422 con fields detallados
-      Exception generica  -> JSONResponse 500
-
-8.5 logging.py
-    setup_logging(level): configura logger "app" con handler stdout
-    get_logger(name): retorna logging.getLogger(f"app.{name}")
-    LoggingMiddleware:
-      - Asigna UUID a cada request (scope["request_id"])
-      - Logea request entrante (metodo, path, id, client, user-agent)
-      - Logea response saliente (status, tiempo en ms)
-      - Agrega headers X-Request-ID y X-Response-Time-ms
-      - Excluye paths de health, docs, redoc, openapi, favicon
-
-8.6 rate_limit.py
-    limiter = Limiter(key_func=get_remote_address, default_limits=[])
-    (instancia compartida usada por main.py y auth_router.py)
-
-
-================================================================================
-9. SEED DATA
-================================================================================
-
-El archivo seed.py se ejecuta al iniciar la aplicacion (si la tabla users
-esta vacia). Carga:
-
-USUARIOS (4):
-  admin   (admin@example.com / Admin123!)  Rol: admin   Activo: SI
-  analyst (analyst@example.com / Analyst123!) Rol: analyst Activo: SI
-  juan    (juan@example.com / Juan123!)    Rol: analyst Activo: SI
-  maria   (maria@example.com / Maria123!)  Rol: analyst Activo: NO
-
-EMPRESAS (5):
-  Saez Logistics   | Logistica   | ciso@saezlogistics.local     | Linux, Apache, Python, PostgreSQL, Docker
-  Kogan Health     | Salud       | security@koganhealth.local    | Windows Server, SQL Server, C#, .NET, AD
-  Grupo X Retail   | Comercio    | it@grupoxretail.local         | Nginx, Linux, MySQL, PHP, WordPress, Node.js, Tomcat
-  TechFlow SA      | Fintech     | security@techflow.local       | Kubernetes, Go, Redis, PostgreSQL, React
-  CloudPress       | Medios      | it@cloudpress.local           | Nginx, WordPress, MySQL, Apache, PHP, Redis
-
-VULNERABILIDADES (6):
-  1. CVE-2025-001 | Apache         | IRC 8.9 | Critica | Pendiente   | Saez Logistics  | analyst
-  2. CVE-2025-002 | .NET           | IRC 6.7 | Alta    | En progreso | Kogan Health    | juan
-  3. CVE-2025-003 | Node.js        | IRC 5.2 | Media   | Resuelto    | Grupo X Retail  | analyst
-  4. CVE-2025-004 | Docker         | IRC 4.1 | Baja    | Pendiente   | Saez Logistics  | juan
-  5. CVE-2025-005 | Kubernetes     | IRC 7.8 | Alta    | Pendiente   | TechFlow SA     | juan
-  6. CVE-2025-006 | WordPress      | IRC 6.5 | Alta    | Pendiente   | CloudPress      | analyst
-
-COMENTARIOS (10): distribuidos entre las vulnerabilidades, de distintos autores.
-HISTORIAL (11): registros de acciones (Creado, Asignado, Estado cambiado, Comentario agregado).
-
-
-================================================================================
-10. FRONTEND
-================================================================================
-
-Stack: React 19 + TypeScript + Vite + React Router v6 + Axios + Tailwind CSS
-
-API Client (lib/api.ts):
-  - Axios instance con baseURL desde VITE_API_URL (default http://localhost:8000)
-  - Interceptor request: agrega Bearer token desde localStorage
-  - Interceptor response: captura 401, hace refresh automatico:
-      1. Guarda refresh_token de localStorage
-      2. POST /auth/refresh
-      3. Actualiza access_token y refresh_token en localStorage
-      4. Reintenta la request original
-      5. Si hay multiples requests en cola, todas se resuelven con el nuevo token
-      6. Si falla el refresh, limpia localStorage y redirige a /login
-
-  Funciones exportadas:
-    login(payload)         -> POST /auth/login
-    logout()               -> POST /auth/logout
-    getUsers()             -> GET /usuarios
-    getCompanies()         -> GET /empresas
-    getCompany(id)         -> GET /empresas/{id}
-    createCompany(payload) -> POST /empresas
-    updateCompany(id, ...) -> PATCH /empresas/{id}
-    getVulnerabilities()   -> GET /vulnerabilidades?page=1&page_size=200
-    getVulnerability(id)   -> GET /vulnerabilidades/{id}
-    createVulnerability()  -> POST /vulnerabilidades
-    updateVulnerability()  -> PATCH /vulnerabilidades/{id}
-    deleteVulnerability()  -> DELETE /vulnerabilidades/{id}
-    getComments(vulnId)    -> GET /comentarios?vulnerability_id=...
-    createComment()        -> POST /vulnerabilidades/{id}/comentarios
-    getHistory(vulnId)     -> GET /historial?vulnerability_id=...
-    getStats()             -> GET /estadisticas
-    getTrends(days)        -> GET /estadisticas/tendencias?days=...
-    createUser(payload)    -> POST /usuarios
-    updateUser(id, ...)    -> PATCH /usuarios/{id}
-
-AuthContext (context/AuthContext.tsx):
-  - Provider que maneja sesion del usuario
-  - login(): llama a apiLogin, guarda access_token, refresh_token, session en localStorage
-  - logout(): llama a apiLogout, limpia localStorage
-  - loadSession(): recupera sesion de localStorage al recargar pagina
-  - user: SessionUser | null (id, username, role)
-  - error: string | null
-
-App.tsx (componente principal):
-  - Punto de entrada de la aplicacion
-  - Carga inicial de datos (usuarios, empresas, vulnerabilidades, stats) via useEffect
-  - Estados: loading, error, store (datos globales)
-  - Funciones CRUD que actualizan el store local (optimistic UI)
-  - Routing condicional segun autenticacion:
-    - No autenticado: LoginPage
-    - Autenticado: Layout con rutas protegidas
-  - ProtectedRoute: componente wrapper que verifica rol requerido
-
-Paginas y rutas:
-  /                  -> DashboardPage (resumen general)
-  /inicio            -> DashboardPage
-  /vulnerabilidades  -> VulnerabilitiesPage (lista con CRUD)
-  /vulnerabilidades/:id -> VulnerabilityDetailPage (detalle + comentarios + historial)
-  /empresas          -> CompaniesPage (solo admin)
-  /empresas/:id      -> CompanyDetailPage (solo admin)
-  /estadisticas      -> StatisticsPage (solo admin)
-  /equipo            -> TeamPage (solo admin)
-  /equipo/:id        -> TeamDetailPage (solo admin)
-  /usuarios          -> UsersPage (solo admin)
-  *                  -> DashboardPage (fallback)
-
-
-================================================================================
-11. TESTS
-================================================================================
-
-40 tests, todos pasando.
-Framework: pytest, TestClient de Starlette.
-Base de datos: SQLite in-memory (sobreescribe get_db via dependency_overrides).
-
-Config de test (conftest.py):
-  - db_session fixture: crea engine SQLite in-memory, crea tablas, carga seed data
-  - client fixture: sobreescribe get_db con la sesion de test, crea TestClient, resetea limiter
-  - admin_token fixture: hace login como admin y devuelve access_token
-  - analyst_token fixture: hace login como analyst y devuelve access_token
-  - auth_header(token): helper para { "Authorization": "Bearer ..." }
-
-TEST AUTH (test_auth.py) - 12 tests:
-  test_health                              Verifica GET /health
-  test_login_success                       Login correcto devuelve tokens + rol
-  test_login_invalid                       Login con password incorrecto -> 401
-  test_login_inactive_user                 Login de usuario inactivo -> 401
-  test_refresh_token                       Refresh correcto devuelve nuevos tokens
-  test_refresh_token_invalid               Refresh con token invalido -> 401
-  test_refresh_token_reuse                 Token reusado despues de refresh -> 401
-  test_logout_requires_auth                Logout sin token -> 403
-  test_logout_success                      Logout exitoso -> 200
-  test_token_revoked_after_logout          Access token invalido despues de logout -> 401
-  test_get_me                              GET /auth/me devuelve datos del usuario
-  test_rate_limit_login                    6to intento de login en misma IP -> 429
-
-TEST VULNERABILIDADES (test_vulnerabilities.py) - 10 tests:
-  test_list_as_admin                       Listar todas (admin) -> 6 resultados
-  test_list_as_analyst_filtered            Listar filtrado por analyst -> solo sus asignadas
-  test_list_pagination                     Paginacion funciona
-  test_create_vulnerability                Crear vulnerabilidad (admin) -> 201
-  test_create_as_analyst_forbidden         Crear como analyst -> 403
-  test_create_invalid_irc                  IRC fuera de rango (15) -> 422
-  test_delete_vulnerability                Eliminar -> 200, luego listar -> 5
-  test_delete_as_analyst_forbidden         Eliminar como analyst -> 403
-  test_get_nonexistent_returns_404         Buscar ID inexistente -> 404
-  test_update_vulnerability_status         Actualizar estado -> 200
-  test_analyst_cannot_change_status        Analyst cambia estado -> 403
-
-TEST USERS (test_users.py) - 6 tests:
-  test_list_users                          Listar usuarios -> 4, todos con assigned_vulnerabilities
-  test_list_users_forbidden_for_analyst    Analyst lista usuarios -> 403
-  test_create_user                         Crear usuario (admin) -> 201
-  test_create_user_weak_password           Password debil -> 422
-  test_create_duplicate_user               Username duplicado -> 409
-  test_update_user                         Actualizar usuario -> 200
-
-TEST COMPANIES (test_companies.py) - 4 tests:
-  test_list_companies                      Listar empresas
-  test_create_company                      Crear empresa (admin)
-  test_get_company                         Obtener detalle
-  test_get_nonexistent_company             Buscar ID inexistente -> 404
-
-TEST COMMENTS (test_comments.py) - 3 tests:
-  test_list_comments                       Listar comentarios de una vulnerabilidad
-  test_create_comment                      Crear comentario
-  test_create_comment_nonexistent_vulnerability  Comentar en vuln inexistente
-
-TEST HISTORY (test_history.py) - 2 tests:
-  test_list_history                        Listar historial
-  test_history_logs_created_with_status_change  Verificar que al cambiar estado se crea log
-
-TEST STATISTICS (test_statistics.py) - 2 tests:
-  test_get_dashboard_stats                 Dashboard con todos los campos requeridos
-  test_get_trends                          Tendencias con created y resolved
-
-
-================================================================================
-12. INTEGRACION N8N
-================================================================================
-
-Endpoint: /webhook/n8n/* (protegido por X-API-Key header)
-
-La integracion con n8n permite automatizar la busqueda de CVEs desde la NVD
-(National Vulnerability Database) cuando se crea una nueva empresa.
-
-Flujo:
-  1. Admin crea una empresa via POST /empresas
-  2. CompanyService.create_company() llama a trigger_n8n_fetch()
-  3. trigger_n8n_fetch() hace POST a config.N8N_WEBHOOK_URL con { "trigger": "new_company" }
-  4. n8n recibe el webhook, busca CVEs relacionados con las tecnologias de la empresa
-  5. n8n crea vulnerabilidades via POST /webhook/n8n/vulnerabilidades
-
-Webhooks n8n disponibles:
-  GET  /webhook/n8n/empresas               -> lista empresas (para que n8n las conozca)
-  POST /webhook/n8n/vulnerabilidades       -> crea vulnerabilidad (n8n envia CVEs encontrados)
-  GET  /webhook/n8n/vulnerabilidades/existe?cve= -> verifica si un CVE ya existe (evita duplicados)
-
-
-================================================================================
-13. CONFIGURACION Y ENTORNO
-================================================================================
-
-Variables de entorno (via .env):
-  DATABASE_URL            default: postgresql://postgres:postgres@localhost:5435/grupo_x
-  SECRET_KEY              default: change-me-in-production
-  ACCESS_TOKEN_EXPIRE_MINUTES default: 30
-  REFRESH_TOKEN_EXPIRE_DAYS  default: 7
-  CORS_ORIGINS            default: ["http://localhost:5173", "http://127.0.0.1:5173"]
-  N8N_API_KEY             default: change-me-n8n-api-key
-  N8N_WEBHOOK_URL         default: http://localhost:5678/webhook/trigger-nvd-fetch
-  NVD_API_KEY             default: ""
-  LOG_LEVEL               default: "INFO"
-
-Ejecucion:
-  Backend:  uvicorn app.main:app --reload --port 8000
-  Frontend: vite (puerto 5173)
-  Tests:    pytest tests/
-
-Dependencias (requirements.txt):
-  fastapi, uvicorn, sqlalchemy, psycopg2-binary, python-jose, passlib, bcrypt,
-  pydantic, pydantic-settings, slowapi, python-multipart
-
-
-================================================================================
-14. DIAGRAMA DE FLUJO DE AUTENTICACION
-================================================================================
-
-LOGIN:
-  Cliente                    Servidor
-    |                           |
-    |-- POST /auth/login ------->|
-    |   { username, password }   |
-    |                           |-- Verificar password (bcrypt)
-    |                           |-- Verificar active=True
-    |                           |-- Crear access_token (JWT, 30min)
-    |                           |-- Crear refresh_token (JWT + DB, 7dias)
-    |<-- 200 OK -----------------|
-    |   { access_token,          |
-    |     refresh_token, ... }   |
-    |                           |
-    |-- Almacena tokens en      |
-    |   localStorage            |
-
-REQUEST AUTENTICADO:
-    |                           |
-    |-- GET /vulnerabilidades -->|
-    |   Authorization: Bearer   |
-    |   <access_token>          |
-    |                           |-- Decodificar JWT
-    |                           |-- Verificar type="access"
-    |                           |-- Cargar usuario de DB
-    |                           |-- Verificar active=True
-    |                           |-- Verificar token_version coincide
-    |<-- 200 OK -----------------|
-
-REFRESH TOKEN (cuando access_token expira):
-    |                           |
-    |-- POST /auth/refresh ----->|
-    |   { refresh_token }       |
-    |                           |-- Decodificar JWT refresh
-    |                           |-- Buscar en DB (jti, not revoked, not expired)
-    |                           |-- Marcar como revoked=True
-    |                           |-- Crear NUEVO access_token
-    |                           |-- Crear NUEVO refresh_token
-    |<-- 200 OK -----------------|
-    |   { access_token,          |
-    |     refresh_token }        |
-    |                           |
-    |-- Actualiza localStorage  |
-
-LOGOUT:
-    |                           |
-    |-- POST /auth/logout ------>|
-    |   Authorization: Bearer   |
-    |                           |-- Revocar todos los refresh_tokens del user
-    |                           |-- Incrementar token_version
-    |<-- 200 OK -----------------|
-    |                           |
-    (cualquier access_token previo queda invalido)
-
-
-================================================================================
-15. ESTRUCTURA DE ARCHIVOS COMPLETA
-================================================================================
-
-GRUPO-X/
+# Grupo X - Documentación técnica completa del proyecto
+
+Este documento describe el estado actual del repositorio y funciona como referencia técnica para comparar la implementación con la tesis de Ingeniería. La regla principal seguida para redactarlo es la siguiente: todo lo que se afirma surge del código fuente, de la configuración del proyecto, de los tests y de los archivos de automatización incluidos en este repositorio.
+
+Si algún aspecto no puede deducirse con certeza del código, se indica explícitamente.
+
+## 1. Resumen general
+
+El proyecto es una plataforma web de gestión de vulnerabilidades de seguridad informática. El sistema permite registrar, clasificar, asignar, comentar, auditar y visualizar vulnerabilidades asociadas a empresas, con un backend en FastAPI, un frontend en React con TypeScript, persistencia en PostgreSQL y automatización mediante n8n.
+
+El objetivo funcional es centralizar el seguimiento operativo de vulnerabilidades y automatizar el ingreso de hallazgos desde fuentes externas, especialmente NVD y FIRST EPSS, enriqueciendo cada hallazgo con una puntuación de riesgo propia llamada IRC.
+
+El problema que resuelve es doble:
+
+- Reducir la carga manual de análisis y carga de vulnerabilidades.
+- Dar trazabilidad operativa entre fuente externa, empresa afectada, tecnología correlacionada, analista asignado, historial y visualización frontend.
+
+El sistema no es un simple CRUD aislado. Tiene una lógica de negocio más amplia:
+
+- Autenticación JWT con refresh token rotation.
+- Control de roles en backend y frontend.
+- Historial automático de acciones.
+- Integración n8n para ingestión de CVEs.
+- Correlación de tecnologías/activos a partir de descripciones.
+- Cálculo propio del IRC.
+- Deduplciación por CVE y empresa.
+
+## 2. Arquitectura completa
+
+### Vista general
+
+La arquitectura real del repositorio es una aplicación monorepo con tres piezas principales:
+
+- Backend: FastAPI + SQLAlchemy + Pydantic.
+- Frontend: React + TypeScript + Vite.
+- Automatización: n8n, que consume NVD y empuja datos al backend.
+
+PostgreSQL es la base persistida principal. Los tests del backend usan SQLite en memoria.
+
+### Flujo de comunicación
+
+```mermaid
+flowchart LR
+  A[NVD API] --> B[n8n workflow]
+  C[FIRST EPSS API] --> B
+  B --> D[FastAPI webhook /webhook/n8n/vulnerabilidades]
+  B --> E[FastAPI webhook /webhook/n8n/empresas]
+  D --> F[SQLAlchemy / PostgreSQL]
+  G[Frontend React] --> H[FastAPI REST API]
+  H --> F
+  G --> H
+```
+
+### Componentes
+
+#### Frontend
+
+El frontend es una SPA en React 18 con Vite. Consume la API del backend mediante Axios. La UI está pensada como un panel de operación para administradores y analistas.
+
+Características visibles en el código:
+
+- Login y sesión local mediante localStorage.
+- Navegación con rutas protegidas.
+- Vistas para dashboard, vulnerabilidades, empresas, usuarios, equipo y estadísticas.
+- Formulario de creación y edición de entidades.
+- Gráficos en estadísticas con Recharts.
+
+#### Backend
+
+El backend usa FastAPI como capa HTTP. La aplicación se organiza en patrones de router, service y repository:
+
+- Router: expone endpoints HTTP.
+- Service: contiene lógica de negocio.
+- Repository: encapsula acceso a SQLAlchemy/ORM.
+
+Además incluye módulos core para:
+
+- configuración,
+- autenticación/autorización,
+- logging,
+- rate limiting,
+- manejo global de excepciones.
+
+#### PostgreSQL
+
+El archivo `docker-compose.yml` define PostgreSQL como base de datos del entorno local. El backend apunta por defecto a `postgresql://postgres:postgres@localhost:5435/grupo_x`.
+
+#### n8n
+
+n8n actúa como motor de automatización. Su workflow importa CVEs desde NVD, calcula y normaliza métricas, correlaciona tecnologías, calcula IRC, verifica duplicados y finalmente inserta las vulnerabilidades en el backend.
+
+#### NVD y FIRST EPSS
+
+El workflow consulta:
+
+- NVD para obtener vulnerabilidades públicas.
+- FIRST EPSS para obtener el valor EPSS cuando está disponible.
+
+Si EPSS no puede recuperarse, el workflow aplica una estimación interna basada en CVSS.
+
+## 3. Estructura del proyecto
+
+### Árbol lógico del repositorio
+
+```text
+.
 ├── backend/
-│   ├── .venv/
+│   ├── requirements.txt
 │   ├── app/
 │   │   ├── __init__.py
-│   │   ├── main.py                  # FastAPI app, middlewares, startup
-│   │   ├── database.py              # engine, SessionLocal, Base, get_db
-│   │   ├── models.py                # SQLAlchemy models (6 tablas + enums)
-│   │   ├── schemas.py               # Pydantic schemas (request/response)
-│   │   ├── auth.py                  # JWT, passwords, refresh tokens
-│   │   ├── seed.py                  # Seed data inicial
+│   │   ├── auth.py
+│   │   ├── database.py
+│   │   ├── main.py
+│   │   ├── models.py
+│   │   ├── schemas.py
+│   │   ├── seed.py
 │   │   ├── core/
 │   │   │   ├── __init__.py
-│   │   │   ├── config.py            # Config via pydantic-settings
-│   │   │   ├── deps.py              # Dependencias: get_current_user, require_role
-│   │   │   ├── exceptions.py        # AppError, handlers globales
-│   │   │   ├── logging.py           # LoggingMiddleware, setup_logging
-│   │   │   └── rate_limit.py        # Instancia compartida de Limiter
+│   │   │   ├── config.py
+│   │   │   ├── deps.py
+│   │   │   ├── exceptions.py
+│   │   │   ├── logging.py
+│   │   │   └── rate_limit.py
 │   │   ├── repositories/
 │   │   │   ├── __init__.py
-│   │   │   ├── user_repository.py
-│   │   │   ├── vulnerability_repository.py
-│   │   │   ├── company_repository.py
 │   │   │   ├── comment_repository.py
-│   │   │   └── history_repository.py
-│   │   ├── services/
+│   │   │   ├── company_repository.py
+│   │   │   ├── history_repository.py
+│   │   │   ├── user_repository.py
+│   │   │   └── vulnerability_repository.py
+│   │   ├── routers/
 │   │   │   ├── __init__.py
-│   │   │   ├── auth_service.py
-│   │   │   ├── user_service.py
-│   │   │   ├── vulnerability_service.py
-│   │   │   ├── company_service.py
-│   │   │   └── statistics_service.py
-│   │   └── routers/
+│   │   │   ├── auth_router.py
+│   │   │   ├── comment_router.py
+│   │   │   ├── company_router.py
+│   │   │   ├── history_router.py
+│   │   │   ├── n8n_router.py
+│   │   │   ├── statistics_router.py
+│   │   │   ├── user_router.py
+│   │   │   └── vulnerability_router.py
+│   │   └── services/
 │   │       ├── __init__.py
-│   │       ├── auth_router.py
-│   │       ├── user_router.py
-│   │       ├── vulnerability_router.py
-│   │       ├── company_router.py
-│   │       ├── comment_router.py
-│   │       ├── history_router.py
-│   │       ├── statistics_router.py
-│   │       └── n8n_router.py
+│   │       ├── auth_service.py
+│   │       ├── company_service.py
+│   │       ├── statistics_service.py
+│   │       ├── user_service.py
+│   │       └── vulnerability_service.py
 │   └── tests/
-│       ├── conftest.py              # Fixtures: db_session, client, tokens
-│       ├── test_auth.py             # 12 tests
-│       ├── test_users.py            # 6 tests
-│       ├── test_vulnerabilities.py   # 10 tests
-│       ├── test_companies.py        # 4 tests
-│       ├── test_comments.py         # 3 tests
-│       ├── test_history.py          # 2 tests
-│       └── test_statistics.py       # 2 tests
-│
+│       ├── __init__.py
+│       ├── conftest.py
+│       ├── test_auth.py
+│       ├── test_comments.py
+│       ├── test_companies.py
+│       ├── test_history.py
+│       ├── test_statistics.py
+│       ├── test_users.py
+│       └── test_vulnerabilities.py
+├── docs/
+│   ├── N8N_IMPLEMENTATION_SUMMARY.md
+│   ├── N8N_WORKFLOW_GUIDE.md
+│   └── PROYECTO_ALINEACION_TESIS.txt
 ├── frontend/
-│   ├── src/
-│   │   ├── main.tsx
-│   │   ├── App.tsx                  # Componente principal con routing
-│   │   ├── types.ts                 # TypeScript types
-│   │   ├── lib/
-│   │   │   └── api.ts              # Axios client, interceptors, todas las funciones API
-│   │   ├── context/
-│   │   │   └── AuthContext.tsx      # AuthProvider, useAuth hook
-│   │   ├── components/
-│   │   │   ├── Layout.tsx
-│   │   │   ├── ProtectedRoute.tsx
-│   │   │   └── ... (otros componentes UI)
-│   │   └── pages/
-│   │       ├── LoginPage.tsx
-│   │       ├── DashboardPage.tsx
-│   │       ├── VulnerabilitiesPage.tsx
-│   │       ├── VulnerabilityDetailPage.tsx
-│   │       ├── CompaniesPage.tsx
-│   │       ├── CompanyDetailPage.tsx
-│   │       ├── StatisticsPage.tsx
-│   │       ├── TeamPage.tsx
-│   │       ├── TeamDetailPage.tsx
-│   │       └── UsersPage.tsx
+│   ├── index.html
 │   ├── package.json
+│   ├── postcss.config.js
+│   ├── tailwind.config.js
+│   ├── tsconfig.json
+│   ├── tsconfig.node.json
 │   ├── vite.config.ts
-│   └── tailwind.config.js
-│
-├── claude.txt                      # Este documento
-└── README.md
+│   └── src/
+│       ├── App.tsx
+│       ├── index.css
+│       ├── main.tsx
+│       ├── types.ts
+│       ├── vite-env.d.ts
+│       ├── components/
+│       │   ├── Layout.tsx
+│       │   ├── ProtectedRoute.tsx
+│       │   └── Ui.tsx
+│       ├── context/
+│       │   └── AuthContext.tsx
+│       ├── data/
+│       │   └── mockData.ts
+│       ├── lib/
+│       │   └── api.ts
+│       ├── pages/
+│       │   ├── CompaniesPage.tsx
+│       │   ├── CompanyDetailPage.tsx
+│       │   ├── DashboardPage.tsx
+│       │   ├── LoginPage.tsx
+│       │   ├── StatisticsPage.tsx
+│       │   ├── TeamDetailPage.tsx
+│       │   ├── TeamPage.tsx
+│       │   ├── UsersPage.tsx
+│       │   ├── VulnerabilitiesPage.tsx
+│       │   └── VulnerabilityDetailPage.tsx
+│       └── test/
+│           ├── AuthContext.test.tsx
+│           ├── ProtectedRoute.test.tsx
+│           ├── api.test.ts
+│           └── setup.ts
+├── docker-compose.yml
+├── n8n_workflow.json
+├── README.md
+├── claude.txt
+└── .env.example
+```
 
-================================================================================
-FIN DEL DOCUMENTO
-================================================================================
+### Propósito por carpeta
+
+#### `backend/`
+
+Contiene toda la API, el modelo de dominio, la persistencia, el seed inicial y los tests.
+
+#### `frontend/`
+
+Contiene la SPA de operación y visualización.
+
+#### `docs/`
+
+Contiene documentación auxiliar sobre la implementación de n8n y la alineación con la tesis.
+
+#### Archivos raíz
+
+- `docker-compose.yml`: servicios de infraestructura local.
+- `n8n_workflow.json`: workflow importable de n8n.
+- `README.md`: documentación de uso general.
+- `claude.txt`: este documento técnico.
+- `.env.example`: variables de entorno sin secretos.
+
+### Archivos importantes y su responsabilidad
+
+- `backend/app/main.py`: crea la aplicación FastAPI, registra middleware, handlers, rutas y startup.
+- `backend/app/models.py`: define las tablas ORM y enums.
+- `backend/app/schemas.py`: define los modelos Pydantic de entrada/salida.
+- `backend/app/auth.py`: hashing, JWT y refresh tokens.
+- `backend/app/core/config.py`: settings del entorno.
+- `backend/app/core/deps.py`: dependencias de autenticación y roles.
+- `backend/app/core/exceptions.py`: errores normalizados.
+- `backend/app/core/logging.py`: logging estructurado y middleware HTTP.
+- `backend/app/core/rate_limit.py`: limitador global.
+- `backend/app/seed.py`: datos de arranque.
+- `backend/app/routers/*.py`: endpoints.
+- `backend/app/services/*.py`: reglas de negocio.
+- `backend/app/repositories/*.py`: acceso a datos.
+- `frontend/src/App.tsx`: orquestación de estado y rutas.
+- `frontend/src/lib/api.ts`: cliente HTTP y funciones de API.
+- `frontend/src/context/AuthContext.tsx`: estado de sesión.
+- `frontend/src/components/*.tsx`: shell visual y control de acceso.
+- `frontend/src/pages/*.tsx`: pantallas funcionales.
+- `n8n_workflow.json`: automatización.
+
+## 4. Backend
+
+### 4.1 Arquitectura
+
+El backend está organizado en capas:
+
+1. Router: recibe la petición HTTP.
+2. Dependencias: resuelven sesión, usuario actual y permisos.
+3. Service: aplica reglas de negocio.
+4. Repository: ejecuta consultas ORM.
+5. Modelos: representan las tablas.
+
+El entrypoint está en `backend/app/main.py`. Ahí se crea la app FastAPI con título, versión, `docs_url` y `redoc_url`, se registran middleware, handlers globales y routers.
+
+### 4.2 Flujo de una petición
+
+Una petición típica pasa por:
+
+- `SlowAPIMiddleware` para rate limiting.
+- `LoggingMiddleware` para request ID y tiempo de respuesta.
+- `CORSMiddleware` con orígenes definidos en config.
+- Handlers de excepción globales.
+- Router.
+- Service.
+- Repository.
+- SQLAlchemy.
+- Base de datos.
+
+### 4.3 Routers
+
+#### `auth_router.py`
+
+Responsabilidad: autenticación y sesión.
+
+Endoints:
+
+- `POST /auth/login`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `GET /auth/me`
+
+#### `vulnerability_router.py`
+
+Responsabilidad: operaciones sobre vulnerabilidades.
+
+Endpoints:
+
+- `GET /vulnerabilidades`
+- `GET /vulnerabilidades/{vulnerability_id}`
+- `POST /vulnerabilidades`
+- `PATCH /vulnerabilidades/{vulnerability_id}`
+- `DELETE /vulnerabilidades/{vulnerability_id}`
+
+Reglas:
+
+- El listado requiere usuario autenticado.
+- La creación y eliminación requieren admin.
+- Cambiar `status` o `assigned_analyst_id` requiere admin.
+
+#### `company_router.py`
+
+Responsabilidad: empresas.
+
+Endpoints:
+
+- `GET /empresas`
+- `GET /empresas/{company_id}`
+- `POST /empresas`
+- `PATCH /empresas/{company_id}`
+- `PATCH /empresas/{company_id}/desactivar`
+- `PATCH /empresas/{company_id}/reactivar`
+
+#### `user_router.py`
+
+Responsabilidad: gestión de usuarios.
+
+Endpoints:
+
+- `GET /usuarios`
+- `POST /usuarios`
+- `PATCH /usuarios/{user_id}`
+
+#### `comment_router.py`
+
+Responsabilidad: comentarios sobre vulnerabilidades.
+
+Endpoints:
+
+- `GET /comentarios`
+- `POST /vulnerabilidades/{vulnerability_id}/comentarios`
+
+#### `history_router.py`
+
+Responsabilidad: historial de auditoría.
+
+Endpoints:
+
+- `GET /historial`
+
+#### `statistics_router.py`
+
+Responsabilidad: métricas y tendencias.
+
+Endpoints:
+
+- `GET /estadisticas`
+- `GET /estadisticas/tendencias`
+
+#### `n8n_router.py`
+
+Responsabilidad: webhooks consumidos por n8n.
+
+Endpoints:
+
+- `GET /webhook/n8n/empresas`
+- `POST /webhook/n8n/vulnerabilidades`
+- `GET /webhook/n8n/vulnerabilidades/existe`
+
+### 4.4 Services
+
+#### `auth_service.py`
+
+Contenido relevante:
+
+- verifica credenciales de login,
+- valida password con bcrypt,
+- crea usuarios con hash,
+- retorna el usuario autenticado.
+
+#### `company_service.py`
+
+Responsabilidad:
+
+- lista empresas,
+- obtiene una empresa,
+- crea empresas,
+- actualiza empresas,
+- desactiva y reactiva empresas.
+
+Lógica importante:
+
+- Si la empresa se crea sin `assigned_analyst_id`, busca el primer analista disponible.
+- Después de crear una empresa intenta disparar un webhook hacia n8n con `N8N_WEBHOOK_URL`.
+- La desactivación es lógica, no borrado físico.
+
+#### `user_service.py`
+
+Responsabilidad:
+
+- listar usuarios con cantidad de vulnerabilidades asignadas,
+- crear usuarios evitando duplicados,
+- actualizar usuarios,
+- recalcular el conteo de asignaciones.
+
+#### `vulnerability_service.py`
+
+Responsabilidad:
+
+- listar vulnerabilidades con filtros,
+- obtener por ID,
+- crear con deduplicación por CVE y empresa,
+- actualizar campos,
+- eliminar,
+- agregar comentarios.
+
+Lógica importante:
+
+- Al crear una vulnerabilidad, si ya existe la misma combinación `cve + company_id`, devuelve error de duplicado.
+- Al crear una vulnerabilidad, inserta un `HistoryLog` con acción `Creado`.
+- Al cambiar asignación o estado, genera entradas de historial automáticamente.
+- Al agregar comentario, también crea historial con acción `Comentario agregado`.
+
+#### `statistics_service.py`
+
+Responsabilidad:
+
+- conteos por severidad,
+- conteos por estado,
+- usuarios activos,
+- actividad de analistas,
+- distribución de IRC en rangos.
+
+### 4.5 Repositories
+
+#### `company_repository.py`
+
+Implementa:
+
+- listado con filtro por activas/inactivas,
+- búsqueda por ID,
+- creación,
+- actualización,
+- desactivación lógica,
+- reactivación.
+
+#### `user_repository.py`
+
+Implementa:
+
+- listado ordenado por rol y nombre,
+- búsqueda por ID y username,
+- creación y actualización con conversión de enum,
+- conteo de usuarios activos,
+- obtención del primer analista.
+
+#### `vulnerability_repository.py`
+
+Implementa:
+
+- listado paginado,
+- búsqueda por ID con `joinedload` de empresa y analista,
+- búsqueda por CVE,
+- búsqueda por `cve + company_id`,
+- creación,
+- actualización,
+- eliminación,
+- conteo por analista,
+- conteo por analistas múltiples,
+- conteo por rangos de IRC,
+- obtención completa.
+
+#### `comment_repository.py`
+
+Implementa listado por vulnerabilidad y creación de comentarios.
+
+#### `history_repository.py`
+
+Implementa listado por vulnerabilidad, creación de registros de historial y conteo por actor.
+
+### 4.6 Utilidades core
+
+#### `core/config.py`
+
+Define settings con `pydantic-settings`. Valores relevantes:
+
+- `DATABASE_URL`
+- `SECRET_KEY`
+- `ALGORITHM`
+- `ACCESS_TOKEN_EXPIRE_MINUTES`
+- `REFRESH_TOKEN_EXPIRE_DAYS`
+- `CORS_ORIGINS`
+- `RATE_LIMIT_LOGIN`
+- `N8N_API_KEY`
+- `N8N_WEBHOOK_URL`
+- `NVD_API_KEY`
+- `LOG_LEVEL`
+
+#### `core/deps.py`
+
+Implementa:
+
+- `get_current_user`
+- `require_role`
+- `require_admin`
+- `require_analyst`
+
+`get_current_user` valida:
+
+- JWT válido,
+- tipo `access`,
+- existencia del usuario,
+- usuario activo,
+- coincidencia de `token_version`.
+
+#### `core/exceptions.py`
+
+Define excepciones de aplicación:
+
+- `AppError`
+- `ResourceNotFoundError`
+- `DuplicateResourceError`
+- `BusinessRuleError`
+- `AuthenticationError`
+- `AuthorizationError`
+
+También registra handlers globales y formatea respuestas como:
+
+```json
+{
+  "error": {
+    "code": "...",
+    "message": "..."
+  }
+}
+```
+
+Para validación, agrega detalles por campo.
+
+#### `core/logging.py`
+
+Implementa logging de aplicación con:
+
+- logger `app`,
+- middleware HTTP,
+- `X-Request-ID`,
+- `X-Response-Time-ms`,
+- exclusión de rutas de docs y health.
+
+#### `core/rate_limit.py`
+
+Define un `Limiter` de SlowAPI usando la IP remota como clave.
+
+### 4.7 Autenticación
+
+#### `auth.py`
+
+Responsabilidades:
+
+- `hash_password`
+- `verify_password`
+- `create_access_token`
+- `create_refresh_token`
+- `refresh_access_token`
+- `revoke_all_user_tokens`
+
+Detalles:
+
+- El access token incluye `sub`, `role`, `type=access`, `ver` y `exp`.
+- El refresh token incluye `sub`, `jti`, `type=refresh` y `exp`.
+- Los refresh tokens se guardan en la tabla `refresh_tokens`.
+- Al refrescar se revoca el token anterior y se emite uno nuevo.
+- Al cerrar sesión se revocan los refresh tokens del usuario y se incrementa `token_version`.
+
+### 4.8 Seed
+
+`seed.py` crea datos iniciales si la base está vacía:
+
+- 4 usuarios,
+- 5 empresas,
+- 6 vulnerabilidades,
+- comentarios,
+- historial.
+
+El seed es muy importante porque los tests dependen de él y porque el frontend muestra datos coherentes al iniciar.
+
+## 5. Base de datos
+
+### Observación general
+
+El modelo está definido en SQLAlchemy dentro de `backend/app/models.py`. No se encontró un directorio de migraciones Alembic en el repositorio actual, aunque algunas documentaciones del proyecto lo mencionan.
+
+### Tablas
+
+#### `companies`
+
+Campos:
+
+- `id`: PK integer.
+- `name`: string 255, requerido.
+- `sector`: string 255, requerido.
+- `contact`: string 255, requerido.
+- `technologies`: JSON de lista de strings, default lista vacía.
+- `assigned_analyst_id`: FK a `users.id`, nullable.
+- `is_active`: boolean, default true.
+- `created_at`: datetime UTC.
+- `updated_at`: datetime UTC con actualización automática.
+
+Relaciones:
+
+- una empresa tiene muchas vulnerabilidades.
+
+Propósito:
+
+- representar la organización afectada por las vulnerabilidades,
+- almacenar tecnologías asociadas para correlación,
+- permitir asignación de un analista responsable.
+
+#### `users`
+
+Campos:
+
+- `id`: PK integer.
+- `username`: string 100, único, requerido, indexado.
+- `email`: string 255, requerido.
+- `role`: enum `UserRole`.
+- `password`: string 255 con hash bcrypt.
+- `active`: boolean, default true.
+- `token_version`: integer, default 0.
+- `latest_activity`: string 255, default `Actividad inicial`.
+- `created_at`: datetime UTC.
+- `updated_at`: datetime UTC.
+
+Relaciones:
+
+- vulnerabilidades asignadas como analista.
+- comentarios escritos por el usuario.
+- registros de historial con actor.
+
+Propósito:
+
+- gestionar identidad y permisos,
+- almacenar auditoría y actividad,
+- soportar el sistema de sesión JWT.
+
+#### `vulnerabilities`
+
+Campos:
+
+- `id`: PK integer.
+- `cve`: string 50, requerido, indexado.
+- `description`: texto requerido.
+- `affected_technology`: string 255, nullable.
+- `irc`: float requerido.
+- `severity`: enum `Severity`.
+- `status`: enum `VulnerabilityStatus`.
+- `company_id`: FK a `companies.id`, requerido, indexado.
+- `assigned_analyst_id`: FK a `users.id`, nullable, indexado.
+- `created_at`: datetime UTC.
+- `updated_at`: datetime UTC.
+
+Índices adicionales:
+
+- `ix_vulnerabilities_created_at`
+- `ix_vulnerabilities_irc`
+
+Relaciones:
+
+- empresa asociada,
+- analista asociado,
+- comentarios con borrado en cascada,
+- historial con borrado en cascada.
+
+Propósito:
+
+- entidad central del sistema,
+- almacenar el resultado combinado de la automatización y la gestión manual.
+
+#### `comments`
+
+Campos:
+
+- `id`: PK integer.
+- `vulnerability_id`: FK a `vulnerabilities.id`.
+- `author_id`: FK a `users.id`.
+- `text`: texto requerido.
+- `created_at`: datetime UTC.
+
+Propósito:
+
+- comunicación operativa entre usuarios sobre una vulnerabilidad.
+
+#### `history_logs`
+
+Campos:
+
+- `id`: PK integer.
+- `vulnerability_id`: FK a `vulnerabilities.id`.
+- `actor_id`: FK a `users.id`, nullable.
+- `action`: string 100.
+- `detail`: string 500.
+- `ip_address`: string 50, nullable.
+- `created_at`: datetime UTC indexado.
+
+Propósito:
+
+- audit trail del sistema,
+- registro de cambios, comentarios y asignaciones.
+
+#### `refresh_tokens`
+
+Campos:
+
+- `id`: PK integer.
+- `jti`: string 255, único, indexado.
+- `user_id`: FK a `users.id`.
+- `expires_at`: datetime.
+- `revoked`: boolean, default false.
+- `created_at`: datetime UTC.
+
+Propósito:
+
+- soporte para rotación y revocación de refresh tokens.
+
+### Enums
+
+- `UserRole`: `admin`, `analyst`, `viewer`.
+- `Severity`: `Crítica`, `Alta`, `Media`, `Baja`.
+- `VulnerabilityStatus`: `Pendiente`, `En progreso`, `Resuelto`, `Cerrado`.
+
+### Relaciones funcionales
+
+- Una empresa puede tener muchas vulnerabilidades.
+- Un usuario puede estar asignado a muchas vulnerabilidades.
+- Un usuario puede escribir muchos comentarios.
+- Una vulnerabilidad puede tener muchos comentarios e historial.
+- El historial y comentarios se eliminan en cascada al borrar una vulnerabilidad.
+
+## 6. API
+
+### Conteo exacto de endpoints
+
+El backend expone 27 endpoints HTTP en total si se incluye `/health`:
+
+- 4 de autenticación
+- 5 de vulnerabilidades
+- 6 de empresas
+- 3 de usuarios
+- 2 de comentarios
+- 1 de historial
+- 2 de estadísticas
+- 3 de n8n
+- 1 de health
+
+Si se cuentan solo los routers funcionales montados explícitamente, el total es 26 endpoints.
+
+### 6.1 Autenticación
+
+#### `POST /auth/login`
+
+- Autenticación: no requiere token.
+- Body: `username`, `password`.
+- Respuesta: `access_token`, `refresh_token`, `token_type`, `user_id`, `username`, `role`.
+- Restricción adicional: rate limit por SlowAPI.
+
+#### `POST /auth/refresh`
+
+- Autenticación: refresh token en body.
+- Body: `refresh_token`.
+- Respuesta: nuevo `access_token` y nuevo `refresh_token`.
+
+#### `POST /auth/logout`
+
+- Autenticación: Bearer token.
+- Efecto: revoca refresh tokens del usuario y aumenta `token_version`.
+
+#### `GET /auth/me`
+
+- Autenticación: Bearer token.
+- Respuesta: `id`, `username`, `email`, `role`, `active`.
+
+### 6.2 Vulnerabilidades
+
+#### `GET /vulnerabilidades`
+
+- Autenticación: Bearer token.
+- Query params: `role`, `user_id`, `page`, `page_size`.
+- Comportamiento: si `role=analyst` y `user_id` está presente, filtra por analista asignado.
+- Respuesta: lista de vulnerabilidades con empresa y analista embebidos.
+
+#### `GET /vulnerabilidades/{id}`
+
+- Autenticación: Bearer token.
+- Respuesta: una vulnerabilidad o 404.
+
+#### `POST /vulnerabilidades`
+
+- Autenticación: admin.
+- Body: `VulnerabilityCreate`.
+- Respuesta: vulnerabilidad creada.
+- Lógica: deduplicación `cve + company_id`.
+
+#### `PATCH /vulnerabilidades/{id}`
+
+- Autenticación: usuario autenticado, con restricción extra para cambios de estado/asignación.
+- Body: `VulnerabilityUpdate`.
+- Lógica: genera historial si cambia `status` o `assigned_analyst_id`.
+
+#### `DELETE /vulnerabilidades/{id}`
+
+- Autenticación: admin.
+- Lógica: borrado físico y cascada de comentarios e historial.
+
+### 6.3 Empresas
+
+#### `GET /empresas`
+
+- Autenticación: Bearer token.
+- Query param: `include_inactive`.
+- Respuesta: lista de empresas.
+
+#### `GET /empresas/{id}`
+
+- Autenticación: Bearer token.
+- Respuesta: empresa o 404.
+
+#### `POST /empresas`
+
+- Autenticación: admin.
+- Body: `CompanyBase`.
+- Efecto: crea empresa, asigna analista por defecto si no se envía y dispara webhook a n8n.
+
+#### `PATCH /empresas/{id}`
+
+- Autenticación: admin.
+- Body: `CompanyUpdate`.
+
+#### `PATCH /empresas/{id}/desactivar`
+
+- Autenticación: admin.
+- Efecto: baja lógica `is_active=false`.
+
+#### `PATCH /empresas/{id}/reactivar`
+
+- Autenticación: admin.
+- Efecto: vuelve a activar la empresa.
+
+### 6.4 Usuarios
+
+#### `GET /usuarios`
+
+- Autenticación: admin.
+- Respuesta: lista de usuarios con `assigned_vulnerabilities`.
+
+#### `POST /usuarios`
+
+- Autenticación: admin.
+- Body: `UserCreate`.
+- Regla adicional: no acepta la contraseña literal `123`.
+
+#### `PATCH /usuarios/{id}`
+
+- Autenticación: admin.
+- Body: `UserUpdate`.
+
+### 6.5 Comentarios
+
+#### `GET /comentarios`
+
+- Autenticación: Bearer token.
+- Query param: `vulnerability_id` opcional.
+
+#### `POST /vulnerabilidades/{id}/comentarios`
+
+- Autenticación: Bearer token.
+- Body: `CommentCreate`.
+- Efecto: crea comentario y registro de historial.
+
+### 6.6 Historial
+
+#### `GET /historial`
+
+- Autenticación: Bearer token.
+- Query param: `vulnerability_id` opcional.
+
+### 6.7 Estadísticas
+
+#### `GET /estadisticas`
+
+- Autenticación: Bearer token.
+- Respuesta: `critical`, `pending`, `resolved`, `active_users`, `severity_counts`, `status_counts`, `analyst_activity`, `irc_distribution`.
+
+#### `GET /estadisticas/tendencias`
+
+- Autenticación: Bearer token.
+- Query param: `days` entre 1 y 90.
+- Respuesta: series `created` y `resolved` por día.
+
+### 6.8 Webhooks n8n
+
+#### `GET /webhook/n8n/empresas`
+
+- Autenticación: header `x-api-key`.
+- Respuesta: lista de empresas activas.
+
+#### `POST /webhook/n8n/vulnerabilidades`
+
+- Autenticación: header `x-api-key`.
+- Body: `VulnerabilityCreate`.
+- Respuesta: vulnerabilidad creada.
+
+#### `GET /webhook/n8n/vulnerabilidades/existe`
+
+- Autenticación: header `x-api-key`.
+- Query params: `cve` y opcionalmente `company_id`.
+- Respuesta: `{ "exists": true|false }`.
+
+## 7. Variables de entorno
+
+Las variables conocidas están definidas en `backend/app/core/config.py` y reflejadas en `.env.example`.
+
+### Obligatorias para funcionamiento real
+
+- `DATABASE_URL`: cadena de conexión a PostgreSQL.
+- `SECRET_KEY`: clave usada para JWT.
+- `N8N_API_KEY`: clave que el backend espera en el header `x-api-key`.
+- `N8N_WEBHOOK_URL`: URL que el backend llama al crear empresas.
+
+### Configurables
+
+- `ALGORITHM`: algoritmo JWT, por defecto `HS256`.
+- `ACCESS_TOKEN_EXPIRE_MINUTES`: duración del access token.
+- `REFRESH_TOKEN_EXPIRE_DAYS`: duración del refresh token.
+- `CORS_ORIGINS`: orígenes permitidos.
+- `RATE_LIMIT_LOGIN`: límite de login configurado en texto, aunque la ruta de login usa actualmente un valor hardcodeado.
+- `NVD_API_KEY`: opcional para aumentar rate limits en NVD.
+- `LOG_LEVEL`: nivel de logging.
+
+### Observación importante
+
+El workflow de n8n incluye una clave hardcodeada `grp-x-n8n-secret-2025` en el JSON importable. El backend, en cambio, usa el valor de `N8N_API_KEY`. Para que la integración funcione sin editar el workflow, ambos valores deben coincidir.
+
+También existe una discrepancia entre configuración y uso real del rate limit de login:
+
+- `RATE_LIMIT_LOGIN` en config está seteado como `5/15minutes`.
+- El decorador de ruta en `/auth/login` usa `5/minute`.
+
+La documentación oficial del comportamiento debe considerar el valor efectivo del código, no solo el valor configurado.
+
+## 8. Dependencias
+
+### Backend principales
+
+- `fastapi`: API HTTP.
+- `uvicorn`: servidor ASGI.
+- `sqlalchemy`: ORM y acceso a base.
+- `psycopg2-binary`: driver PostgreSQL.
+- `pydantic` y `pydantic-settings`: validación y configuración.
+- `python-jose[cryptography]`: JWT.
+- `passlib[bcrypt]` y `bcrypt`: hashes de contraseña.
+- `slowapi` y `limits`: rate limiting.
+- `httpx`: pruebas y llamadas HTTP en tooling del ecosistema.
+- `pytest`, `pytest-asyncio`: tests.
+- `alembic`: dependencia presente, pero no se encontró carpeta de migraciones en el repositorio.
+
+### Frontend principales
+
+- `react` y `react-dom`.
+- `react-router-dom`: rutas.
+- `axios`: cliente HTTP.
+- `recharts`: gráficos.
+- `vite`: bundler y dev server.
+- `typescript`: tipado estático.
+- `tailwindcss`: estilos.
+- `vitest` y Testing Library: tests.
+
+## 9. Docker
+
+El archivo `docker-compose.yml` define únicamente infraestructura auxiliar, no la aplicación backend/frontend.
+
+### Servicios
+
+#### PostgreSQL
+
+- Imagen: `postgres:16-alpine`.
+- Puerto host: `5435`.
+- Base: `grupo_x`.
+- Usuario/clave: `postgres` / `postgres`.
+- Volumen persistente: `postgres_data`.
+
+#### pgAdmin
+
+- Imagen: `dpage/pgadmin4`.
+- Puerto host: `5050`.
+- Credenciales por defecto definidas en compose.
+
+#### n8n
+
+- Imagen: `n8nio/n8n:1.70.0`.
+- Puerto host: `5678`.
+- Volumen persistente: `n8n_data`.
+- Monta `n8n_workflow.json` como workflow importado.
+- También referencia `n8n_workflow_seed.json`, pero ese archivo no está presente en el repositorio actual.
+
+### Comunicación entre contenedores
+
+- n8n se comunica con el backend mediante `host.docker.internal:8000`.
+- PostgreSQL expone el puerto `5435` al host.
+- El backend local usa esa URL por defecto para conectarse.
+
+## 10. Workflow de n8n
+
+### 10.1 Objetivo
+
+Automatizar la ingestión de vulnerabilidades desde NVD, enriqueciendo cada registro con EPSS, correlación de activos, IRC, asignación de analista y deduplicación antes de insertarlo en FastAPI.
+
+### 10.2 Triggers
+
+El workflow se activa de tres formas:
+
+- `Manual Trigger`
+- `Schedule Trigger` cada 3 horas
+- `Webhook Trigger` desde el backend
+
+### 10.3 Nodo por nodo
+
+#### 1. Manual Trigger
+
+- Propósito: ejecución manual.
+- Entrada: ninguna.
+- Salida: dispara el flujo hacia NVD.
+- Dependencias: ninguna.
+
+#### 2. Schedule Trigger
+
+- Propósito: ejecución periódica cada 3 horas.
+- Entrada: tiempo.
+- Salida: dispara el flujo hacia NVD.
+- Dependencias: ninguna.
+
+#### 3. Webhook Trigger
+
+- Propósito: ejecución iniciada por el backend cuando se crea una empresa.
+- Entrada: POST al path `trigger-nvd-fetch`.
+- Salida: dispara el flujo hacia NVD.
+- Dependencias: backend y `N8N_WEBHOOK_URL`.
+
+#### 4. Fetch NVD API
+
+- Propósito: consultar CVEs en NVD.
+- Entrada: no recibe datos previos.
+- Salida: JSON con vulnerabilidades.
+- Transformación: realiza GET sobre `https://services.nvd.nist.gov/rest/json/cves/2.0`.
+- Parámetros visibles: `resultsPerPage=20` y keywords como nginx, apache, wordpress, tomcat, kubernetes, docker, linux, windows, .net, mysql, postgresql, sql server y redis.
+- Dependencias: red externa y, opcionalmente, `NVD_API_KEY` si se ajusta el request manualmente.
+
+#### 5. Extract Fields
+
+- Propósito: extraer campos útiles del JSON de NVD.
+- Entrada: respuesta NVD.
+- Salida: objetos con `cve`, `cvss`, `description`, `publishedDate`, `timestamp`.
+- Transformación: elige la primera métrica disponible entre CVSS v3.1, v3.0 y v2; recorta descripciones a 500 caracteres.
+- Dependencias: estructura del JSON de NVD.
+
+#### 6. Filter Completeness
+
+- Propósito: filtrar elementos sin descripción útil.
+- Entrada: items extraídos.
+- Salida: items con descripción no vacía.
+- Transformación: evalúa la longitud de `description`.
+
+#### 7. Normalize Data
+
+- Propósito: normalizar CVSS y obtener EPSS.
+- Entrada: item con CVE y CVSS.
+- Salida: item normalizado con `cvss`, `epss`, `epss_source`, `description`, `publishedDate`, `normalized_timestamp`.
+- Transformación:
+  - limita CVSS al rango 0-10,
+  - consulta FIRST EPSS por CVE,
+  - si no hay respuesta, estima EPSS internamente según CVSS con una distribución heurística,
+  - recorta espacios de la descripción.
+- Dependencias: FIRST EPSS API y red.
+
+#### 8. Asset Correlation
+
+- Propósito: identificar el activo/tecnología más probable afectado.
+- Entrada: descripción normalizada.
+- Salida: `correlated_asset` y `asset_criticality`.
+- Transformación: búsqueda por palabras clave con estructura `if / else if`.
+- Dependencias: texto descriptivo del CVE.
+
+#### 9. Calculate IRC
+
+- Propósito: calcular el Índice de Riesgo Completo.
+- Entrada: `cvss`, `epss`, `asset_criticality`.
+- Salida: `irc` truncado a dos decimales.
+- Fórmula:
+
+```text
+IRC = (CVSS * 0.4) + (EPSS * 10 * 0.4) + (Asset Criticality * 0.2)
+```
+
+#### 10. Detect Critical
+
+- Propósito: bifurcar el flujo según el IRC.
+- Entrada: item con IRC calculado.
+- Salida: rama crítica o normal.
+- Regla: crítico si `irc >= 7.5`.
+
+#### 11. Critical Path - Mark
+
+- Propósito: etiquetar el caso como crítico.
+- Entrada: item crítico.
+- Salida: item con `is_critical=true`, `severity_override='Crítica'`, `alert_event='CRITICAL_ALERT_GENERATED'`.
+- Dependencias: rama crítica.
+
+#### 12. Normal Path - Mark
+
+- Propósito: asignar severidad en el camino no crítico.
+- Entrada: item no crítico.
+- Salida: item con `is_critical=false`, `severity_override` calculada y `alert_event=null`.
+- Dependencias: rama normal.
+
+#### 13. Merge Branches
+
+- Propósito: unir ambas ramas.
+- Entrada: salida crítica o normal.
+- Salida: flujo único hacia asignación.
+
+#### 14. Assign Analyst
+
+- Propósito: correlacionar la vulnerabilidad con una empresa y decidir analista.
+- Entrada: item con descripción, activo correlacionado, severidad y IRC.
+- Salida: payload listo para insertar.
+- Transformación:
+  - consulta `/webhook/n8n/empresas` con API key,
+  - compara tecnologías de cada empresa contra descripción y activo,
+  - puntúa coincidencias,
+  - elige compañías con score > 0,
+  - si no hay coincidencias, usa la primera compañía disponible,
+  - asigna analista `2` para severidad `Crítica` o `Alta`, `3` para `Media` o `Baja`,
+  - construye el payload con `cve`, `description`, `affected_technology`, `irc`, `severity`, `status='Pendiente'`, `company_id`, `assigned_analyst_id`.
+- Dependencias: backend webhook de empresas y API key.
+
+#### 15. Idempotency Check
+
+- Propósito: evitar duplicar vulnerabilidades.
+- Entrada: payload propuesto.
+- Salida: resultado de existencia.
+- Transformación: consulta `/webhook/n8n/vulnerabilidades/existe?cve=...&company_id=...`.
+- Dependencias: backend webhook, API key y deduplicación en el servicio.
+
+#### 16. Skip if Exists
+
+- Propósito: decidir si se crea o se omite.
+- Entrada: resultado de existencia.
+- Salida: rama de creación o rama vacía.
+- Regla: solo continúa si `exists == false`.
+
+#### 17. POST to FastAPI
+
+- Propósito: crear la vulnerabilidad en el backend.
+- Entrada: payload final.
+- Salida: respuesta del backend.
+- Transformación: POST a `/webhook/n8n/vulnerabilidades` con JSON body y API key.
+- Dependencias: backend funcionando y API key válida.
+
+#### 18. Generate Summary
+
+- Propósito: consolidar resultados del workflow.
+- Entrada: resultados previos.
+- Salida: resumen con `created`, `skipped_duplicates`, `errors`, `status`, `timestamp`.
+- Dependencias: resultados del flujo.
+
+### 10.4 Flujo completo de la vulnerabilidad
+
+1. n8n consulta NVD.
+2. Extrae CVE, CVSS y descripción.
+3. Filtra registros incompletos.
+4. Normaliza CVSS.
+5. Consulta FIRST EPSS; si falla, estima EPSS.
+6. Correlaciona tecnologías por palabras clave.
+7. Calcula IRC.
+8. Clasifica criticidad.
+9. Asigna empresa y analista.
+10. Verifica duplicado por `cve + company_id`.
+11. Inserta en FastAPI si no existe.
+12. FastAPI persiste la vulnerabilidad en PostgreSQL.
+13. El backend expone la nueva información a la API REST.
+14. El frontend la consume y la presenta en las vistas.
+
+## 11. Integración con NVD
+
+### Endpoint utilizado
+
+El workflow usa:
+
+`https://services.nvd.nist.gov/rest/json/cves/2.0`
+
+### Método y parámetros
+
+- Método: GET.
+- Parámetro visible: `resultsPerPage=20`.
+- Query de keywords: lista de tecnologías y plataformas comunes.
+
+### Frecuencia
+
+- Ejecución manual.
+- Cada 3 horas por scheduler.
+- Ejecución disparada por webhook desde backend al crear empresas.
+
+### Procesamiento de resultados
+
+- Se toma el primer valor disponible de CVSS v3.1, v3.0 o v2.
+- Se limita el texto descriptivo a 500 caracteres.
+- Se descartan registros sin descripción.
+- Se conserva la fecha de publicación cuando existe.
+
+## 12. Integración con FIRST EPSS
+
+### Endpoint
+
+El workflow consulta:
+
+`https://api.first.org/data/v1/epss?cve=...`
+
+### Fuente real usada en el proyecto
+
+La fuente real de EPSS usada por el workflow es FIRST.org, mediante la API pública `https://api.first.org/data/v1/epss`. En el nodo de normalización, el valor se solicita por CVE y se usa como fuente primaria. Si la consulta falla o no devuelve datos, el workflow aplica un fallback interno etiquetado como `cvss-estimate`.
+
+### Utilización
+
+- Se usa para enriquecer el cálculo del IRC.
+- El valor recuperado se transforma a la escala interna 0-10 multiplicando por 10 dentro de la fórmula del IRC.
+
+### Fallback
+
+Si FIRST EPSS falla o no devuelve datos:
+
+- se aplica una heurística interna basada en el CVSS,
+- se elige un rango aleatorio acotado según severidad,
+- se registra `epss_source = cvss-estimate`.
+
+### Procesamiento
+
+- El valor se redondea a 4 decimales.
+- El resultado final se usa solo para el IRC y para la clasificación interna.
+
+## 13. Frontend
+
+### 13.1 Estructura
+
+El frontend es una SPA en React 18.3.1 con TypeScript y Vite. La aplicación entra por `main.tsx`, que envuelve `App` con `BrowserRouter` y `AuthProvider`.
+
+### 13.2 Estado global y navegación
+
+#### `AuthContext.tsx`
+
+Responsabilidad:
+
+- mantener el usuario logueado,
+- exponer `login` y `logout`,
+- persistir sesión en localStorage,
+- manejar mensajes de error de autenticación.
+
+Claves de almacenamiento:
+
+- `grupo-x-token`
+- `grupo-x-refresh-token`
+- `grupo-x-session`
+
+El contexto guarda solo `id`, `username` y `role` del usuario de sesión.
+
+#### `ProtectedRoute.tsx`
+
+Responsabilidad:
+
+- redirigir a `/login` si no hay sesión,
+- bloquear rutas si el rol no coincide con `requiredRole`.
+
+Importante:
+
+- la UI tipa los roles como `admin | analyst`.
+- el rol `viewer` existe en backend pero no está modelado como rol visible en el frontend.
+
+#### `Layout.tsx`
+
+Responsabilidad:
+
+- mostrar sidebar y topbar,
+- adaptar navegación según rol,
+- exponer botón de salida.
+
+Los enlaces de admin son más amplios que los de analyst.
+
+#### `Ui.tsx`
+
+Contiene primitivas reutilizables:
+
+- `Card`
+- `Badge`
+- `MetricCard`
+- `SectionTitle`
+
+### 13.3 Cliente HTTP
+
+#### `lib/api.ts`
+
+Responsabilidad:
+
+- crear instancia Axios con `baseURL` configurable por `VITE_API_URL`,
+- agregar Authorization Bearer automáticamente,
+- refrescar tokens al recibir 401,
+- encadenar requests pendientes durante refresh,
+- exportar funciones tipadas para toda la API.
+
+Rutas consumidas:
+
+- autenticación,
+- usuarios,
+- empresas,
+- vulnerabilidades,
+- comentarios,
+- historial,
+- estadísticas.
+
+### 13.4 Flujo de datos en `App.tsx`
+
+`App` es el orquestador de la interfaz:
+
+- si no hay sesión, muestra `LoginPage`;
+- si hay sesión, carga datos desde backend;
+- renderiza `Layout` y rutas;
+- mantiene un store local de usuarios, empresas, vulnerabilidades, comentarios, historial y estadísticas;
+- refresca datos al cambiar la ruta.
+
+Observaciones importantes del flujo:
+
+- Si el usuario es admin, carga usuarios.
+- Las empresas se piden con `includeInactive=true`.
+- Las vulnerabilidades se filtran por rol y por `sessionUser.id` cuando corresponde.
+- Las estadísticas se cargan siempre para usuarios autenticados.
+- `comments` e `history` se cargan únicamente para la primera vulnerabilidad del array global, no para la vulnerabilidad seleccionada por ruta; la vista de detalle vuelve a consultarlas por su cuenta.
+
+### 13.5 Páginas
+
+#### `LoginPage.tsx`
+
+- Pantalla de acceso.
+- Usa formulario simple con usuario y contraseña.
+- Llama a `onLogin`.
+
+#### `DashboardPage.tsx`
+
+- Vista principal.
+- Para admin muestra métricas globales, accesos rápidos, equipo y casos críticos.
+- Para analyst muestra métricas propias y próximas acciones.
+
+#### `VulnerabilitiesPage.tsx`
+
+- Listado principal de vulnerabilidades.
+- Admin puede crear y filtrar.
+- Analyst ve solo las asignadas.
+- Permite eliminar en admin.
+- Resalta criticidad con badges y estilos especiales.
+
+#### `VulnerabilityDetailPage.tsx`
+
+- Detalle de una vulnerabilidad.
+- Carga comentarios e historial desde la API.
+- Permite comentar si el usuario es admin o analista asignado.
+- Permite editar estado y tecnología afectada; admin además puede reasignar analista.
+- Usa `mockData` como respaldo visual si la API no responde.
+
+#### `CompaniesPage.tsx`
+
+- Lista y creación de empresas.
+- Permite filtrar activas e inactivas.
+- Permite desactivar y reactivar.
+- Muestra conteo de vulnerabilidades por empresa.
+
+#### `CompanyDetailPage.tsx`
+
+- Detalle y edición de empresa.
+- Permite reasignar analista.
+- Muestra vulnerabilidades asociadas.
+
+#### `UsersPage.tsx`
+
+- Gestión de usuarios.
+- Permite crear cuentas admin o analyst.
+- Permite activar y desactivar usuarios.
+
+#### `TeamPage.tsx`
+
+- Vista resumida de analistas.
+- Navega al detalle individual.
+
+#### `TeamDetailPage.tsx`
+
+- Muestra la información del analista y sus vulnerabilidades asignadas.
+
+#### `StatisticsPage.tsx`
+
+- Consume `DashboardStats`.
+- Presenta gráficos por severidad, estado e IRC, más actividad de analistas.
+
+### 13.6 Tipos compartidos
+
+#### `types.ts`
+
+Define los tipos de interfaz utilizados por el frontend:
+
+- `Role`
+- `User`
+- `Company`
+- `Vulnerability`
+- `CompanySummary`
+- `Comment`
+- `HistoryLog`
+- `DashboardStats`
+- `SessionUser`
+
+### 13.7 Mock data
+
+#### `data/mockData.ts`
+
+Contiene datos de respaldo para usuarios, empresas, vulnerabilidades, comentarios, historial y estadísticas.
+
+Uso real:
+
+- sirve como fallback en detalle de vulnerabilidad cuando la API no responde,
+- funciona como referencia visual de datos realistas.
+
+## 14. Tests
+
+### 14.1 Backend
+
+Los tests usan SQLite en memoria y la aplicación FastAPI real con overrides de dependencia.
+
+#### `conftest.py`
+
+- crea engine SQLite in-memory,
+- activa foreign keys,
+- crea tablas,
+- ejecuta el seed,
+- sobrescribe `get_db`,
+- expone tokens de admin y analyst.
+
+#### `test_auth.py`
+
+Valida:
+
+- health check,
+- login correcto,
+- login inválido,
+- login de usuario inactivo,
+- refresh token,
+- refresh inválido,
+- reutilización de refresh revocado,
+- logout,
+- revocación efectiva del access token,
+- `/auth/me`,
+- rate limiting del login.
+
+#### `test_comments.py`
+
+Valida:
+
+- listado de comentarios,
+- creación de comentario,
+- 404 al comentar una vulnerabilidad inexistente.
+
+#### `test_companies.py`
+
+Valida:
+
+- listado de empresas,
+- inclusión de inactivas,
+- creación,
+- obtención por ID,
+- 404 de empresa inexistente,
+- desactivación lógica,
+- reactivación.
+
+#### `test_history.py`
+
+Valida:
+
+- listado de historial,
+- creación automática de historial al cambiar estado.
+
+#### `test_statistics.py`
+
+Valida:
+
+- estructura del dashboard stats,
+- estructura de tendencias.
+
+#### `test_users.py`
+
+Valida:
+
+- listado de usuarios por admin,
+- rechazo a analistas,
+- creación de usuario,
+- validación de contraseña débil,
+- rechazo por usuario duplicado,
+- actualización de usuario.
+
+#### `test_vulnerabilities.py`
+
+Valida:
+
+- listado completo,
+- filtrado por analista,
+- paginación,
+- creación,
+- rechazo por rol incorrecto,
+- validación de IRC fuera de rango,
+- rechazo de duplicado por misma empresa,
+- chequeo de existencia scopeado por empresa,
+- borrado,
+- 403 para borrado sin permiso,
+- 404 para ID inexistente,
+- cambio de estado,
+- bloqueo al analista para cambiar estado.
+
+### 14.2 Frontend
+
+#### `api.test.ts`
+
+Valida:
+
+- `setToken` guarda y elimina el token,
+- `login`, `logout` y `setToken` son funciones exportadas.
+
+#### `AuthContext.test.tsx`
+
+Valida:
+
+- estado inicial sin usuario y sin error,
+- error al usar `useAuth` fuera del provider.
+
+#### `ProtectedRoute.test.tsx`
+
+Valida:
+
+- redirección a login cuando no existe sesión.
+
+### 14.3 Alcance real de los tests
+
+El conjunto visible cubre autenticación, seguridad básica, CRUD principal, auditoría, estadísticas y comportamiento frontend mínimo. No se encontró un suite E2E de navegador completo ni tests específicos del workflow n8n.
+
+## 15. Decisiones de diseño
+
+### Separación por capas en backend
+
+La división router/service/repository permite aislar HTTP, negocio y persistencia. Esto simplifica el testeo y reduce el acoplamiento.
+
+### JWT con token_version
+
+Se eligió un esquema con `token_version` para invalidar access tokens luego del logout. Esto evita depender solo de la expiración temporal.
+
+### Refresh token rotation
+
+Cada refresh invalida el token anterior, lo que mejora seguridad frente a reuso de tokens.
+
+### Historial de auditoría
+
+Toda acción importante crea rastros en `history_logs`, lo que es útil para trazabilidad operacional y para una tesis orientada a gobierno o seguridad.
+
+### Cálculo IRC propio
+
+El sistema no adopta solo CVSS. Combina CVSS, EPSS y criticidad del activo para priorizar por contexto de negocio.
+
+### Correlación por palabras clave
+
+La correlación de activos en n8n se implementa como heurística por keywords. Es una solución simple, transparente y fácil de defender en una tesis, aunque no es semánticamente robusta.
+
+### Frontend centrado en rol
+
+La UI no intenta ser genérica para todos los perfiles. Admin y analyst tienen vistas diferentes y esa diferencia se refleja en navegación, acceso a páginas y acciones permitidas.
+
+## 16. Limitaciones conocidas
+
+No se ocultan aquí las limitaciones que se desprenden del código actual:
+
+- No se encontró un directorio de migraciones Alembic.
+- La integración n8n usa una clave hardcodeada en el workflow JSON; debe coincidir con la del backend.
+- La configuración `RATE_LIMIT_LOGIN` existe, pero el decorador de login usa un valor hardcodeado distinto.
+- El frontend no modela el rol `viewer` aunque el backend sí lo define.
+- El frontend guarda solo una sesión simplificada en localStorage; no persiste email ni permisos detallados.
+- `App.tsx` carga comments/history globalmente para el primer item disponible, no para el detalle activo de forma centralizada.
+- El workflow de n8n depende de `host.docker.internal`, lo que es apropiado en entornos locales pero no universal para despliegues distintos.
+- `docker-compose.yml` referencia `n8n_workflow_seed.json`, pero ese archivo no está en el repositorio actual.
+- La heurística de EPSS fallback introduce aleatoriedad cuando FIRST EPSS no responde.
+
+## 17. Mejoras futuras
+
+Estas mejoras no cambian el funcionamiento actual, pero serían extensiones naturales:
+
+- Añadir migraciones Alembic formales.
+- Exponer el rol `viewer` también en el frontend.
+- Unificar el valor de rate limit entre config y decorador.
+- Externalizar la API key de n8n fuera del workflow JSON.
+- Reemplazar la correlación por keywords con una lógica semántica más avanzada.
+- Guardar trazas más ricas de actividad del usuario en frontend y backend.
+- Incorporar tests del workflow n8n o validación automatizada del JSON importado.
+- Mejorar el detalle del dashboard con filtros temporales configurables en frontend.
+- Introducir paginación real en el frontend para listados muy grandes.
+- Separar el cache de sesión local de los tokens para hacer la autenticación más explícita.
+
+## 18. Resumen final
+
+El proyecto implementa una plataforma de gestión de vulnerabilidades con tres niveles de funcionamiento coordinado.
+
+Primero, el backend FastAPI expone la API principal y las rutas de integración. Allí se resuelven autenticación JWT, autorización por roles, CRUD de usuarios, empresas y vulnerabilidades, comentarios, historial y estadísticas. La persistencia se apoya en SQLAlchemy y PostgreSQL, con un esquema de tablas centrado en empresas, usuarios, vulnerabilidades, comentarios, historial y refresh tokens. El backend agrega además logging, rate limiting, handlers globales y startup con seed.
+
+Segundo, el frontend React consume esa API y presenta la información en una interfaz operativa. La sesión se administra con localStorage y refresh automático. La navegación cambia según el rol, y las pantallas principales permiten visualizar dashboards, administrar empresas y usuarios, explorar vulnerabilidades y revisar detalle, comentarios e historial.
+
+Tercero, n8n actúa como capa de automatización e ingestión. El workflow consulta NVD, extrae campos útiles, calcula o estima EPSS, correlaciona tecnologías, calcula IRC, clasifica criticidad, asigna empresa y analista, evita duplicados por CVE y empresa, y persiste el resultado en el backend.
+
+El sistema está diseñado para que una vulnerabilidad pueda entrar desde NVD, pasar por enriquecimiento automático, quedar almacenada en la base, auditarse en historial y luego visualizarse y gestionarse desde el frontend. Esa cadena completa es el núcleo funcional del proyecto.
+
+En términos de alineación con una tesis de Ingeniería, la implementación actual sí contiene los elementos estructurales necesarios para demostrar automatización, priorización de riesgo, trazabilidad, integración con fuentes externas y una interfaz de operación. Las limitaciones anotadas arriba son reales y deben tenerse en cuenta al comparar el documento académico con el estado exacto del código.
