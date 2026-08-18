@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { CompanySummary, Role, User, Vulnerability } from '../types'
 import { Badge, Card, SectionTitle } from '../components/Ui'
+import { translateDescription } from '../lib/translate'
 
 type Props = {
   role: Role
@@ -173,7 +174,7 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
                       <h3 className="text-base font-semibold text-slate-900">{item.cve}</h3>
                       {critical ? <Badge tone="yellow">Alerta crítica</Badge> : null}
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                    <p className="mt-2 text-sm text-slate-600">{translateDescription(item.description)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {role === 'admin' && onDeleteVulnerability ? (

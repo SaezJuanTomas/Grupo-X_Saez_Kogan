@@ -2,6 +2,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -63,7 +64,7 @@ def on_startup() -> None:
 def health():
     try:
         db = SessionLocal()
-        db.execute(db.bind.dialect.statement_compiler(db.bind, db.bind.dialect().select_1()).__class__.__name__)
+        db.execute(text("SELECT 1"))
         db_status = "ok"
         db.close()
     except Exception:

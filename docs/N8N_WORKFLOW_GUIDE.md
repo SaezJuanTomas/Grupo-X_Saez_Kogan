@@ -3,7 +3,7 @@
 ## Importing the Workflow
 
 1. Open n8n at `http://localhost:5678`
-2. Login with credentials: `admin` / `n8n-grupo-x-2025`
+2. Login with credentials: `admin@grupox.local` / `Admin123!`
 3. Click **Workflows** → **Import from File**
 4. Select the `n8n_workflow.json` file from the project root
 5. Click **Save** and activate the workflow

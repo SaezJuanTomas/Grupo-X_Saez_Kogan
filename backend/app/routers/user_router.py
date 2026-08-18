@@ -42,7 +42,18 @@ def update_user(
     db: Session = Depends(get_db),
     _user: User = Depends(require_admin),
 ):
-    result = UserService(db).update_user(user_id, payload.model_dump(exclude_unset=True))
+    service = UserService(db)
+    changes = payload.model_dump(exclude_unset=True)
+
+    if changes.get("active") is False:
+        assigned = service.vuln_repo.count_by_analyst(user_id)
+        if assigned > 0:
+            raise BusinessRuleError(
+                f"No se puede desactivar: el usuario tiene {assigned} vulnerabilidad(es) asignada(s). "
+                "Reasigna las vulnerabilidades antes de desactivar."
+            )
+
+    result = service.update_user(user_id, changes)
     if not result:
         raise ResourceNotFoundError("Usuario no encontrado")
     return result

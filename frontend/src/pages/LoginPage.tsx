@@ -25,16 +25,16 @@ export function LoginPage({ onLogin, error }: LoginPageProps) {
             Panel académico para seguimiento de vulnerabilidades con enfoque minimalista, presentación profesional y flujo realista para una defensa de tesis.
           </p>
           <div className="mt-8 grid gap-3 text-sm text-slate-300 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">Login mock con roles admin y analyst.</div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">SQLite con seed automático y datos realistas.</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">Autenticación con roles admin y analyst.</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">PostgreSQL con seed automático y datos reales de NVD.</div>
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">Sidebar fija, topbar y contenido dinámico.</div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">Preparado para futura automatización con n8n.</div>
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">Automatización activa con n8n (NVD → EPSS → IRC).</div>
           </div>
         </div>
 
         <Card className="self-center p-6">
           <h2 className="text-2xl font-semibold text-slate-900">Iniciar sesión</h2>
-          <p className="mt-2 text-sm text-slate-500">Usa una cuenta mock para entrar al MVP.</p>
+          <p className="mt-2 text-sm text-slate-500">Ingresa tus credenciales para acceder.</p>
 
           <form className="mt-6 space-y-4" onSubmit={submit}>
             <label className="block">
@@ -63,7 +63,7 @@ export function LoginPage({ onLogin, error }: LoginPageProps) {
           </form>
 
           <div className="mt-6 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600">
-            <p className="font-medium text-slate-800">Credenciales mock</p>
+            <p className="font-medium text-slate-800">Credenciales de acceso</p>
             <p className="mt-1">admin / Admin123!</p>
             <p>analyst / Analyst123!</p>
           </div>

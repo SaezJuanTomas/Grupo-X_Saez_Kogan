@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import type { User, Vulnerability } from '../types'
 import { Badge, Card, SectionTitle } from '../components/Ui'
+import { translateDescription } from '../lib/translate'
 
 type Props = {
   users: User[]
@@ -75,7 +76,7 @@ export function TeamDetailPage({ users, vulnerabilities }: Props) {
                     <h3 className="text-base font-semibold text-slate-900">{item.cve}</h3>
                     {item.irc >= 8 ? <Badge tone="yellow">Crítica</Badge> : null}
                   </div>
-                  <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                  <p className="mt-2 text-sm text-slate-600">{translateDescription(item.description)}</p>
                 </div>
                 <Badge tone={severityTone(item.severity)}>{item.severity}</Badge>
               </div>

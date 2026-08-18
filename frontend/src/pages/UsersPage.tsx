@@ -12,25 +12,28 @@ export function UsersPage({ users, onToggleActive, onCreateUser }: Props) {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'admin' | 'analyst'>('analyst')
+  const [password, setPassword] = useState('')
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (!username.trim() || !email.trim()) return
-    onCreateUser({ username: username.trim(), email: email.trim(), role, password: '123' })
+    if (!username.trim() || !email.trim() || !password.trim()) return
+    onCreateUser({ username: username.trim(), email: email.trim(), role, password: password.trim() })
     setUsername('')
     setEmail('')
     setRole('analyst')
+    setPassword('')
   }
 
   return (
     <div className="space-y-6">
-      <SectionTitle title="Gestión de usuarios" subtitle="Alta, activación y desactivación de cuentas mock." />
+      <SectionTitle title="Gestión de usuarios" subtitle="Alta, activación y desactivación de cuentas." />
 
       <Card>
         <h3 className="text-lg font-semibold text-slate-900">Crear usuario</h3>
-        <form className="mt-4 grid gap-3 md:grid-cols-4" onSubmit={submit}>
+        <form className="mt-4 grid gap-3 md:grid-cols-5" onSubmit={submit}>
           <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="Usuario" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
-          <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+          <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" type="email" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
+          <input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Contraseña (min. 6 chars)" type="password" className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none" />
           <select value={role} onChange={(event) => setRole(event.target.value as 'admin' | 'analyst')} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none">
             <option value="analyst">Analyst</option>
             <option value="admin">Admin</option>

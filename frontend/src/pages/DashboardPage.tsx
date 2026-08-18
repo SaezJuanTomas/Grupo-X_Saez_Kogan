@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { DashboardStats, Role, User, Vulnerability } from '../types'
 import { Badge, Card, MetricCard, SectionTitle } from '../components/Ui'
+import { translateDescription } from '../lib/translate'
 
 type DashboardPageProps = {
   role: Role
@@ -63,7 +64,7 @@ export function DashboardPage({ role, sessionUser, vulnerabilities, users, stats
               {vulnerabilities.filter((item) => item.irc >= 8).slice(0, 3).map((item) => (
                 <Link key={item.id} to={`/vulnerabilidades/${item.id}`} className="block rounded-xl border border-amber-200 bg-amber-50 p-3 transition hover:bg-amber-100">
                   <p className="text-sm font-semibold text-slate-900">{item.cve}</p>
-                  <p className="mt-1 text-xs text-slate-600">{item.description}</p>
+                  <p className="mt-1 text-xs text-slate-600">{translateDescription(item.description)}</p>
                 </Link>
               ))}
               {criticalTotal === 0 ? <p className="text-sm text-slate-500">No hay casos críticos.</p> : null}
@@ -97,7 +98,7 @@ export function DashboardPage({ role, sessionUser, vulnerabilities, users, stats
                 <p className="font-semibold text-slate-900">{item.cve}</p>
                 <Badge tone={item.irc >= 8 ? 'yellow' : 'slate'}>{item.status}</Badge>
               </div>
-              <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+              <p className="mt-2 text-sm text-slate-600">{translateDescription(item.description)}</p>
             </Link>
           ))}
           {assigned.length === 0 ? <p className="text-sm text-slate-500">No tienes vulnerabilidades asignadas.</p> : null}

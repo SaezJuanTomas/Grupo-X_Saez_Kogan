@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
+import { Toast, ToastError } from './components/Ui'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { StatisticsPage } from './pages/StatisticsPage'
@@ -41,6 +42,8 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [store, setStore] = useState<Store>(defaultStore)
   const [loading, setLoading] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const [toastError, setToastError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!sessionUser) return
@@ -82,9 +85,39 @@ export function App() {
     return () => { mounted = false }
   }, [sessionUser, location.pathname])
 
+  const refreshData = useCallback(async () => {
+    if (!sessionUser) return
+    try {
+      const [users, companies, vulnerabilities, stats] = await Promise.all([
+        sessionUser.role === 'admin' ? getUsers() : Promise.resolve([] as User[]),
+        getCompanies(true),
+        getVulnerabilities(sessionUser.role, sessionUser.role === 'analyst' ? sessionUser.id : undefined),
+        getStats(),
+      ])
+      setStore((current) => ({ ...current, users, companies, vulnerabilities, stats }))
+    } catch {
+      // silent
+    }
+  }, [sessionUser])
+
+  function showToast(message: string) {
+    setToast(message)
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  function showError(message: string) {
+    setToastError(message)
+    setTimeout(() => setToastError(null), 4000)
+  }
+
   async function handleLogin(username: string, password: string) {
-    await login(username, password)
-    navigate('/')
+    try {
+      await login(username, password)
+      setError(null)
+      navigate('/')
+    } catch {
+      setError('Nombre de usuario o contraseña incorrectos')
+    }
   }
 
   async function handleLogout() {
@@ -94,19 +127,29 @@ export function App() {
     navigate('/login')
   }
 
-  function createUser(payload: { username: string; email: string; role: 'admin' | 'analyst'; password: string }) {
-    void createUserRequest(payload).then((createdUser) => {
+  async function createUser(payload: { username: string; email: string; role: 'admin' | 'analyst'; password: string }) {
+    try {
+      const createdUser = await createUserRequest(payload)
       setStore((current) => ({ ...current, users: [...current.users, createdUser] }))
-    })
+      showToast('Usuario creado correctamente')
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Error al crear usuario'
+      showError(msg)
+    }
   }
 
-  function createCompany(payload: { name: string; sector: string; contact: string; technologies?: string[] }) {
-    void createCompanyRequest(payload).then((createdCompany) => {
+  async function createCompany(payload: { name: string; sector: string; contact: string; technologies?: string[] }) {
+    try {
+      const createdCompany = await createCompanyRequest(payload)
       setStore((current) => ({ ...current, companies: [...current.companies, createdCompany] }))
-    })
+      showToast('Empresa creada correctamente')
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Error al crear empresa'
+      showError(msg)
+    }
   }
 
-  function updateCompany(id: number, company: CompanySummary) {
+  async function updateCompany(id: number, company: CompanySummary) {
     setStore((current) => ({
       ...current,
       companies: current.companies.map((item) => (item.id === id ? company : item)),
@@ -114,26 +157,37 @@ export function App() {
         item.company_id === id ? { ...item, company: company } : item,
       ),
     }))
+    showToast('Cambios guardados')
   }
 
-  function toggleActive(userId: number) {
+  async function toggleActive(userId: number) {
     const current = store.users.find((user) => user.id === userId)
     if (!current) return
-    void updateUserRequest(userId, { active: !current.active }).then((updatedUser) => {
+    try {
+      const updatedUser = await updateUserRequest(userId, { active: !current.active })
       setStore((state) => ({
         ...state,
         users: state.users.map((user) => (user.id === userId ? updatedUser : user)),
       }))
-    })
+      showToast(current.active ? 'Usuario desactivado' : 'Usuario reactivado')
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Error al actualizar usuario'
+      showError(msg)
+    }
   }
 
-  function createVulnerability(payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>) {
-    void createVulnerabilityRequest(payload).then((createdVulnerability) => {
+  async function createVulnerability(payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>) {
+    try {
+      const createdVulnerability = await createVulnerabilityRequest(payload)
       setStore((current) => ({
         ...current,
         vulnerabilities: [createdVulnerability, ...current.vulnerabilities],
       }))
-    })
+      showToast('Vulnerabilidad creada correctamente')
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Error al crear vulnerabilidad'
+      showError(msg)
+    }
   }
 
   async function updateVulnerability(id: number, payload: Partial<Vulnerability>) {
@@ -142,33 +196,49 @@ export function App() {
       ...current,
       vulnerabilities: current.vulnerabilities.map((item) => (item.id === id ? updatedVulnerability : item)),
     }))
+    showToast('Cambios guardados')
   }
 
-  function handleDeleteVulnerability(id: number) {
-    void deleteVulnerabilityRequest(id).then(() => {
+  async function handleDeleteVulnerability(id: number) {
+    try {
+      await deleteVulnerabilityRequest(id)
       setStore((current) => ({
         ...current,
         vulnerabilities: current.vulnerabilities.filter((item) => item.id !== id),
       }))
-    })
+      showToast('Vulnerabilidad eliminada')
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Error al eliminar vulnerabilidad'
+      showError(msg)
+    }
   }
 
-  function handleSoftDeleteCompany(id: number) {
-    void softDeleteCompanyRequest(id).then((updatedCompany) => {
+  async function handleSoftDeleteCompany(id: number) {
+    try {
+      const updatedCompany = await softDeleteCompanyRequest(id)
       setStore((current) => ({
         ...current,
         companies: current.companies.map((item) => (item.id === id ? updatedCompany : item)),
       }))
-    })
+      showToast('Empresa desactivada')
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Error al desactivar empresa'
+      showError(msg)
+    }
   }
 
-  function handleReactivateCompany(id: number) {
-    void reactivateCompanyRequest(id).then((updatedCompany) => {
+  async function handleReactivateCompany(id: number) {
+    try {
+      const updatedCompany = await reactivateCompanyRequest(id)
       setStore((current) => ({
         ...current,
         companies: current.companies.map((item) => (item.id === id ? updatedCompany : item)),
       }))
-    })
+      showToast('Empresa reactivada')
+    } catch (err: any) {
+      const msg = err?.response?.data?.error?.message || 'Error al reactivar empresa'
+      showError(msg)
+    }
   }
 
   const currentUser = store.users.find((user) => user.id === sessionUser?.id) || null
@@ -180,6 +250,7 @@ export function App() {
   const emptyStats: DashboardStats = { critical: 0, pending: 0, resolved: 0, active_users: 0, severity_counts: {}, status_counts: {}, analyst_activity: [], irc_distribution: {} }
 
   return (
+    <>
     <Layout sessionUser={sessionUser} onLogout={handleLogout}>
       {loading && store.companies.length === 0 ? <div className="mb-4 rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-soft">Cargando datos...</div> : null}
       {error ? <div className="mb-4 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 shadow-soft">{error}</div> : null}
@@ -187,7 +258,7 @@ export function App() {
         <Route path="/" element={<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />} />
         <Route path="/inicio" element={<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />} />
         <Route path="/vulnerabilidades" element={<VulnerabilitiesPage role={sessionUser.role} sessionUserId={sessionUser.id} users={store.users} companies={store.companies.filter((c) => c.is_active !== false)} vulnerabilities={store.vulnerabilities} onCreateVulnerability={createVulnerability} onDeleteVulnerability={handleDeleteVulnerability} />} />
-        <Route path="/vulnerabilidades/:id" element={<VulnerabilityDetailPage role={sessionUser.role} sessionUser={{ id: sessionUser.id, username: sessionUser.username, email: '', role: sessionUser.role, active: true, latest_activity: '' }} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateVulnerability={updateVulnerability} />} />
+        <Route path="/vulnerabilidades/:id" element={<VulnerabilityDetailPage role={sessionUser.role} sessionUser={{ id: sessionUser.id, username: sessionUser.username, email: '', role: sessionUser.role, active: true, latest_activity: '' }} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateVulnerability={updateVulnerability} onRefresh={refreshData} />} />
         <Route path="/empresas" element={<ProtectedRoute requiredRole="admin"><CompaniesPage companies={store.companies} users={store.users} vulnerabilities={store.vulnerabilities} onCreateCompany={createCompany} onSoftDeleteCompany={handleSoftDeleteCompany} onReactivateCompany={handleReactivateCompany} /></ProtectedRoute>} />
         <Route path="/empresas/:id" element={<ProtectedRoute requiredRole="admin"><CompanyDetailPage companies={store.companies.filter((c) => c.is_active !== false)} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateCompany={updateCompany} /></ProtectedRoute>} />
         <Route path="/estadisticas" element={<ProtectedRoute requiredRole="admin"><StatisticsPage stats={store.stats || emptyStats} /></ProtectedRoute>} />
@@ -197,5 +268,8 @@ export function App() {
         <Route path="*" element={sessionUser ? <DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} /> : null} />
       </Routes>
     </Layout>
+    {toast ? <Toast message={toast} onClose={() => setToast(null)} /> : null}
+    {toastError ? <ToastError message={toastError} onClose={() => setToastError(null)} /> : null}
+    </>
   )
 }

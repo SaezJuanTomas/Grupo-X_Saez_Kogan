@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import type { CompanySummary, User, Vulnerability } from '../types'
 import { Badge, Card, SectionTitle } from '../components/Ui'
 import { updateCompany } from '../lib/api'
+import { translateDescription } from '../lib/translate'
 
 type Props = {
   companies: CompanySummary[]
@@ -128,7 +129,7 @@ export function CompanyDetailPage({ companies, users, vulnerabilities, onUpdateC
                   <p className="font-semibold text-slate-900">{item.cve}</p>
                   <Badge tone={item.irc >= 8 ? 'yellow' : 'slate'}>{item.status}</Badge>
                 </div>
-                <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                <p className="mt-2 text-sm text-slate-600">{translateDescription(item.description)}</p>
               </Link>
             ))}
             {assignedVulnerabilities.length === 0 ? <p className="text-sm text-slate-500">No hay vulnerabilidades asociadas.</p> : null}

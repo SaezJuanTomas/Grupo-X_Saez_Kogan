@@ -92,6 +92,7 @@ class Vulnerability(Base):
     analyst = relationship("User", back_populates="vulnerabilities")
     comments = relationship("Comment", back_populates="vulnerability", cascade="all, delete-orphan", lazy="dynamic")
     history_logs = relationship("HistoryLog", back_populates="vulnerability", cascade="all, delete-orphan", lazy="dynamic")
+    ingestion_logs = relationship("VulnerabilityIngestionLog", cascade="all, delete-orphan", lazy="dynamic")
 
     __table_args__ = (
         Index("ix_vulnerabilities_created_at", "created_at"),
@@ -146,7 +147,7 @@ class VulnerabilityIngestionLog(Base):
     source = Column(String(20), nullable=False, default="api")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    vulnerability = relationship("Vulnerability")
+    vulnerability = relationship("Vulnerability", back_populates="ingestion_logs")
 
 
 class RefreshToken(Base):
