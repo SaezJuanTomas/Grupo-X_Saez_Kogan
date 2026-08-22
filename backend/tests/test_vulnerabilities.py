@@ -129,6 +129,16 @@ class TestVulnerabilities:
         assert resp.status_code == 200
         assert resp.json()["status"] == "Resuelto"
 
-    def test_analyst_cannot_change_status(self, client, analyst_token):
-        resp = client.patch("/vulnerabilidades/1", json={"status": "Resuelto"}, headers=auth_header(analyst_token))
+    def test_analyst_can_change_status(self, client, analyst_token):
+        resp = client.patch("/vulnerabilidades/1", json={"status": "En progreso"}, headers=auth_header(analyst_token))
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "En progreso"
+
+    def test_analyst_cannot_reassign_analyst(self, client, analyst_token):
+        resp = client.patch("/vulnerabilidades/1", json={"assigned_analyst_id": 3}, headers=auth_header(analyst_token))
         assert resp.status_code == 403
+
+    def test_analyst_can_change_affected_technology(self, client, analyst_token):
+        resp = client.patch("/vulnerabilidades/1", json={"affected_technology": "nginx"}, headers=auth_header(analyst_token))
+        assert resp.status_code == 200
+        assert resp.json()["affected_technology"] == "nginx"

@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { CompanySummary, Role, User, Vulnerability } from '../types'
 import { Badge, Card, SectionTitle } from '../components/Ui'
+import { translateDescription } from '../lib/translate'
 
 type Props = {
   role: Role
@@ -9,7 +10,7 @@ type Props = {
   users: User[]
   companies: CompanySummary[]
   vulnerabilities: Vulnerability[]
-  onCreateVulnerability: (payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>) => void
+  onCreateVulnerability: (payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>) => Promise<boolean>
   onDeleteVulnerability?: (id: number) => void
 }
 
@@ -44,7 +45,7 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
     return items
   }, [vulnerabilities, role, sessionUserId, search, filterAnalyst, filterStatus, filterSeverity, filterCompany, ircMin, ircMax])
 
-  const [cve, setCve] = useState('CVE-2025-005')
+  const [cve, setCve] = useState('')
   const [description, setDescription] = useState('')
   const [irc, setIrc] = useState('7.5')
   const [severity, setSeverity] = useState('Alta')
@@ -52,15 +53,26 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
   const [companyId, setCompanyId] = useState(String(companies[0]?.id || vulnerabilities[0]?.company_id || 1))
   const [affectedTechnology, setAffectedTechnology] = useState('')
   const [assignedAnalystId, setAssignedAnalystId] = useState(String(users.find((user) => user.role === 'analyst')?.id || ''))
+  const [submitting, setSubmitting] = useState(false)
+  const [formResult, setFormResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   const companyOptions = useMemo(() => companies, [companies])
   const selectedCompany = useMemo(() => companies.find((c) => c.id === Number(companyId)), [companies, companyId])
 
-  function submit(event: FormEvent) {
+  async function submit(event: FormEvent) {
     event.preventDefault()
-    if (!description.trim()) return
-    onCreateVulnerability({
-      cve,
+    if (!cve.trim()) {
+      setFormResult({ ok: false, message: 'Ingresá un CVE (por ejemplo CVE-2026-1234).' })
+      return
+    }
+    if (!description.trim()) {
+      setFormResult({ ok: false, message: 'Ingresá una descripción.' })
+      return
+    }
+    setSubmitting(true)
+    setFormResult(null)
+    const payload = {
+      cve: cve.trim(),
       description: description.trim(),
       affected_technology: affectedTechnology || null,
       irc: Number(irc),
@@ -68,9 +80,25 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
       status,
       company_id: Number(companyId),
       assigned_analyst_id: assignedAnalystId ? Number(assignedAnalystId) : null,
-    })
-    setDescription('')
-    setAffectedTechnology('')
+    }
+    const ok = await onCreateVulnerability(payload)
+    setSubmitting(false)
+    if (ok) {
+      const analystName = users.find((u) => u.id === Number(assignedAnalystId))?.username
+      const notified = analystName && (payload.severity === 'Crítica' || payload.severity === 'Alta' || payload.irc >= 7.5)
+      setFormResult({
+        ok: true,
+        message:
+          `Vulnerabilidad ${payload.cve} creada correctamente.` +
+          (notified ? ` Se envió un mail de alerta a ${analystName}.` : '') +
+          ' La lista se actualizó.',
+      })
+      setCve('')
+      setDescription('')
+      setAffectedTechnology('')
+    } else {
+      setFormResult({ ok: false, message: 'No se pudo crear la vulnerabilidad. Revisá el mensaje e intentá de nuevo.' })
+    }
   }
 
   return (
@@ -119,10 +147,24 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
                 </option>
               ))}
             </select>
-            <button type="submit" className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-medium text-white hover:bg-slate-700 md:col-span-2 xl:col-span-4">
-              Crear vulnerabilidad
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 md:col-span-2 xl:col-span-4"
+            >
+              {submitting ? 'Creando...' : 'Crear vulnerabilidad'}
             </button>
           </form>
+          {formResult ? (
+            <p
+              role="status"
+              className={`mt-3 rounded-xl px-4 py-3 text-sm font-medium ${
+                formResult.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+              }`}
+            >
+              {formResult.message}
+            </p>
+          ) : null}
         </Card>
       ) : null}
 
@@ -173,7 +215,7 @@ export function VulnerabilitiesPage({ role, sessionUserId, users, companies, vul
                       <h3 className="text-base font-semibold text-slate-900">{item.cve}</h3>
                       {critical ? <Badge tone="yellow">Alerta crítica</Badge> : null}
                     </div>
-                    <p className="mt-2 text-sm text-slate-600">{item.description}</p>
+                    <p className="mt-2 text-sm text-slate-600">{translateDescription(item.description)}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     {role === 'admin' && onDeleteVulnerability ? (

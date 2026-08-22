@@ -34,7 +34,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem('grupo-x-session', JSON.stringify(sessionUser))
       setUser(sessionUser)
     } catch {
-      setError('Credenciales inválidas')
+      setError('Nombre de usuario o contraseña incorrectos')
+      throw new Error('Credenciales inválidas')
     }
   }, [])
 

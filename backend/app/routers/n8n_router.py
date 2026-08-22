@@ -29,7 +29,11 @@ def webhook_create_vulnerability(
     db: Session = Depends(get_db),
     _verified: None = Depends(verify_n8n_key),
 ):
-    return VulnerabilityService(db).create_vulnerability(**payload.model_dump())
+    svc = VulnerabilityService(db)
+    existing = svc.vuln_repo.get_by_cve_and_company(payload.cve, payload.company_id)
+    if existing:
+        return existing
+    return svc.create_vulnerability(**payload.model_dump())
 
 
 @router.get("/vulnerabilidades/existe")
