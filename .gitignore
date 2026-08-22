@@ -27,3 +27,6 @@ backend/.env
 n8n_data/
 backend/.n8n/
 frontend/.n8n/
+logs/
+*.log
+*.tsbuildinfo
