@@ -9,7 +9,7 @@ type LayoutProps = {
 }
 
 const adminLinks = [
-  { to: '/', label: 'Inicio' },
+  { to: '/inicio', label: 'Inicio' },
   { to: '/vulnerabilidades', label: 'Vulnerabilidades' },
   { to: '/empresas', label: 'Empresas' },
   { to: '/estadisticas', label: 'Estadísticas' },
@@ -18,7 +18,7 @@ const adminLinks = [
 ]
 
 const analystLinks = [
-  { to: '/', label: 'Inicio' },
+  { to: '/inicio', label: 'Inicio' },
   { to: '/vulnerabilidades', label: 'Vulnerabilidades' },
 ]
 

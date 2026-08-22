@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react'
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useState, useCallback, type ReactNode } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { Toast, ToastError } from './components/Ui'
 import { LoginPage } from './pages/LoginPage'
+import { LandingPage } from './pages/LandingPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { StatisticsPage } from './pages/StatisticsPage'
 import { TeamPage } from './pages/TeamPage'
@@ -114,7 +115,7 @@ export function App() {
     try {
       await login(username, password)
       setError(null)
-      navigate('/')
+      navigate('/inicio')
     } catch {
       setError('Nombre de usuario o contraseña incorrectos')
     }
@@ -176,17 +177,26 @@ export function App() {
     }
   }
 
-  async function createVulnerability(payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>) {
+  function extractApiError(err: any, fallback: string): string {
+    const data = err?.response?.data
+    if (data?.error?.message) return data.error.message
+    if (typeof data?.detail === 'string') return data.detail
+    if (Array.isArray(data?.detail)) {
+      const first = data.detail[0]
+      return first?.msg ? `${first.msg}${first.loc ? ` (${first.loc.join('.')})` : ''}` : fallback
+    }
+    return fallback
+  }
+
+  async function createVulnerability(payload: Omit<Vulnerability, 'id' | 'created_at' | 'updated_at' | 'company'>): Promise<boolean> {
     try {
-      const createdVulnerability = await createVulnerabilityRequest(payload)
-      setStore((current) => ({
-        ...current,
-        vulnerabilities: [createdVulnerability, ...current.vulnerabilities],
-      }))
-      showToast('Vulnerabilidad creada correctamente')
+      await createVulnerabilityRequest(payload)
+      await refreshData()
+      showToast(`Vulnerabilidad ${payload.cve} creada correctamente`)
+      return true
     } catch (err: any) {
-      const msg = err?.response?.data?.error?.message || 'Error al crear vulnerabilidad'
-      showError(msg)
+      showError(extractApiError(err, 'Error al crear vulnerabilidad'))
+      return false
     }
   }
 
@@ -241,35 +251,57 @@ export function App() {
     }
   }
 
-  const currentUser = store.users.find((user) => user.id === sessionUser?.id) || null
+  const emptyStats: DashboardStats = { critical: 0, pending: 0, resolved: 0, active_users: 0, severity_counts: {}, status_counts: {}, analyst_activity: [], irc_distribution: {} }
+
+  const toasts = (
+    <>
+      {toast ? <Toast message={toast} onClose={() => setToast(null)} /> : null}
+      {toastError ? <ToastError message={toastError} onClose={() => setToastError(null)} /> : null}
+    </>
+  )
 
   if (!sessionUser) {
-    return <LoginPage onLogin={handleLogin} error={error} />
+    return (
+      <>
+        <Routes>
+          <Route path="/" element={<LandingPage onLogout={handleLogout} />} />
+          <Route path="/login" element={<LoginPage onLogin={handleLogin} error={error} />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        {toasts}
+      </>
+    )
   }
 
-  const emptyStats: DashboardStats = { critical: 0, pending: 0, resolved: 0, active_users: 0, severity_counts: {}, status_counts: {}, analyst_activity: [], irc_distribution: {} }
+  const authedUser = sessionUser
+
+  function page(node: ReactNode) {
+    return (
+      <Layout sessionUser={authedUser} onLogout={handleLogout}>
+        {loading && store.companies.length === 0 ? <div className="mb-4 rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-soft">Cargando datos...</div> : null}
+        {error ? <div className="mb-4 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 shadow-soft">{error}</div> : null}
+        {node}
+      </Layout>
+    )
+  }
 
   return (
     <>
-    <Layout sessionUser={sessionUser} onLogout={handleLogout}>
-      {loading && store.companies.length === 0 ? <div className="mb-4 rounded-2xl bg-white p-4 text-sm text-slate-500 shadow-soft">Cargando datos...</div> : null}
-      {error ? <div className="mb-4 rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 shadow-soft">{error}</div> : null}
       <Routes>
-        <Route path="/" element={<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />} />
-        <Route path="/inicio" element={<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />} />
-        <Route path="/vulnerabilidades" element={<VulnerabilitiesPage role={sessionUser.role} sessionUserId={sessionUser.id} users={store.users} companies={store.companies.filter((c) => c.is_active !== false)} vulnerabilities={store.vulnerabilities} onCreateVulnerability={createVulnerability} onDeleteVulnerability={handleDeleteVulnerability} />} />
-        <Route path="/vulnerabilidades/:id" element={<VulnerabilityDetailPage role={sessionUser.role} sessionUser={{ id: sessionUser.id, username: sessionUser.username, email: '', role: sessionUser.role, active: true, latest_activity: '' }} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateVulnerability={updateVulnerability} onRefresh={refreshData} />} />
-        <Route path="/empresas" element={<ProtectedRoute requiredRole="admin"><CompaniesPage companies={store.companies} users={store.users} vulnerabilities={store.vulnerabilities} onCreateCompany={createCompany} onSoftDeleteCompany={handleSoftDeleteCompany} onReactivateCompany={handleReactivateCompany} /></ProtectedRoute>} />
-        <Route path="/empresas/:id" element={<ProtectedRoute requiredRole="admin"><CompanyDetailPage companies={store.companies.filter((c) => c.is_active !== false)} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateCompany={updateCompany} /></ProtectedRoute>} />
-        <Route path="/estadisticas" element={<ProtectedRoute requiredRole="admin"><StatisticsPage stats={store.stats || emptyStats} /></ProtectedRoute>} />
-        <Route path="/equipo" element={<ProtectedRoute requiredRole="admin"><TeamPage users={store.users} /></ProtectedRoute>} />
-        <Route path="/equipo/:id" element={<ProtectedRoute requiredRole="admin"><TeamDetailPage users={store.users} vulnerabilities={store.vulnerabilities} /></ProtectedRoute>} />
-        <Route path="/usuarios" element={<ProtectedRoute requiredRole="admin"><UsersPage users={store.users} onToggleActive={toggleActive} onCreateUser={createUser} /></ProtectedRoute>} />
-        <Route path="*" element={sessionUser ? <DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} /> : null} />
+        <Route path="/" element={<LandingPage onLogout={handleLogout} />} />
+        <Route path="/login" element={<Navigate to="/inicio" replace />} />
+        <Route path="/inicio" element={page(<DashboardPage role={sessionUser.role} sessionUser={sessionUser} vulnerabilities={store.vulnerabilities} users={store.users} stats={store.stats || emptyStats} />)} />
+        <Route path="/vulnerabilidades" element={page(<ProtectedRoute><VulnerabilitiesPage role={sessionUser.role} sessionUserId={sessionUser.id} users={store.users} companies={store.companies.filter((c) => c.is_active !== false)} vulnerabilities={store.vulnerabilities} onCreateVulnerability={createVulnerability} onDeleteVulnerability={handleDeleteVulnerability} /></ProtectedRoute>)} />
+        <Route path="/vulnerabilidades/:id" element={page(<ProtectedRoute><VulnerabilityDetailPage role={sessionUser.role} sessionUser={{ id: sessionUser.id, username: sessionUser.username, email: '', role: sessionUser.role, active: true, latest_activity: '' }} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateVulnerability={updateVulnerability} onRefresh={refreshData} /></ProtectedRoute>)} />
+        <Route path="/empresas" element={page(<ProtectedRoute requiredRole="admin"><CompaniesPage companies={store.companies} users={store.users} vulnerabilities={store.vulnerabilities} onCreateCompany={createCompany} onSoftDeleteCompany={handleSoftDeleteCompany} onReactivateCompany={handleReactivateCompany} /></ProtectedRoute>)} />
+        <Route path="/empresas/:id" element={page(<ProtectedRoute requiredRole="admin"><CompanyDetailPage companies={store.companies.filter((c) => c.is_active !== false)} users={store.users} vulnerabilities={store.vulnerabilities} onUpdateCompany={updateCompany} /></ProtectedRoute>)} />
+        <Route path="/estadisticas" element={page(<ProtectedRoute requiredRole="admin"><StatisticsPage stats={store.stats || emptyStats} /></ProtectedRoute>)} />
+        <Route path="/equipo" element={page(<ProtectedRoute requiredRole="admin"><TeamPage users={store.users} /></ProtectedRoute>)} />
+        <Route path="/equipo/:id" element={page(<ProtectedRoute requiredRole="admin"><TeamDetailPage users={store.users} vulnerabilities={store.vulnerabilities} /></ProtectedRoute>)} />
+        <Route path="/usuarios" element={page(<ProtectedRoute requiredRole="admin"><UsersPage users={store.users} onToggleActive={toggleActive} onCreateUser={createUser} /></ProtectedRoute>)} />
+        <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Routes>
-    </Layout>
-    {toast ? <Toast message={toast} onClose={() => setToast(null)} /> : null}
-    {toastError ? <ToastError message={toastError} onClose={() => setToastError(null)} /> : null}
+      {toasts}
     </>
   )
 }

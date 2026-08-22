@@ -2,7 +2,14 @@ $ErrorActionPreference = 'SilentlyContinue'
 
 Write-Host "=== Grupo X - Arrancando servicios ===" -ForegroundColor Cyan
 
-Write-Host "`n[1/3] Docker..." -ForegroundColor Yellow
+Write-Host "`n[1/3] Docker / PostgreSQL..." -ForegroundColor Yellow
+docker compose up postgres smtp4dev -d | Out-Null
+$tries = 0
+do {
+    Start-Sleep -Seconds 2
+    $tries++
+    $dbUp = ((docker ps --filter "name=postgres" --filter "health=healthy" --format "{{.Names}}") -ne $null)
+} while (-not $dbUp -and $tries -lt 15)
 docker ps --format "{{.Names}} ({{.Status}})" | ForEach-Object { Write-Host "  $_" -ForegroundColor Green }
 
 Write-Host "`n[2/3] Backend (puerto 8000)..." -ForegroundColor Yellow
@@ -25,8 +32,9 @@ Start-Process powershell -ArgumentList @("-NoProfile", "-Command", "Set-Location
 Start-Sleep -Seconds 6
 
 Write-Host "`n=== Listo ===" -ForegroundColor Cyan
-Write-Host "  Frontend: http://127.0.0.1:5173"
+Write-Host "  Landing:  http://127.0.0.1:5173  (abrir aca para arrancar la demo)"
 Write-Host "  Backend:  http://localhost:8000/docs"
 Write-Host "  n8n:      http://localhost:5678"
+Write-Host "  Mail:     http://localhost:5300  (bandeja smtp4dev para notificaciones)"
 Write-Host ""
-Write-Host "Login: admin / Admin123" -ForegroundColor Magenta
+Write-Host "Login: admin / Admin123!" -ForegroundColor Magenta

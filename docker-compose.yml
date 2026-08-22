@@ -48,6 +48,14 @@ services:
       postgres:
         condition: service_healthy
 
+  smtp4dev:
+    image: rnwood/smtp4dev:v3
+    container_name: grupo-x-smtp4dev
+    restart: unless-stopped
+    ports:
+      - "5300:80"
+      - "2525:25"
+
 volumes:
   postgres_data:
   n8n_data:

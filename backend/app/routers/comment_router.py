@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ..core.deps import get_current_user
+from ..core.deps import get_current_user, require_analyst
 from ..database import get_db
 from ..models import User
 from ..schemas import CommentCreate, CommentRead
@@ -27,7 +27,7 @@ def create_comment(
     vulnerability_id: int,
     payload: CommentCreate,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_analyst),
 ):
     return VulnerabilityService(db).add_comment(
         vulnerability_id=vulnerability_id,

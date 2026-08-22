@@ -23,7 +23,7 @@ def webhook_list_companies(
     return CompanyRepository(db).list_all(include_inactive=False)
 
 
-@router.post("/vulnerabilidades", response_model=VulnerabilityRead)
+@router.post("/vulnerabilidades", response_model=VulnerabilityRead, status_code=201)
 def webhook_create_vulnerability(
     payload: VulnerabilityCreate,
     db: Session = Depends(get_db),
