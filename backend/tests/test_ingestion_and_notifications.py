@@ -50,6 +50,13 @@ def smtp_config(monkeypatch):
     monkeypatch.setattr(config, "SMTP_USE_SSL", False)
 
 
+@pytest.fixture
+def smtp_config_disabled(monkeypatch):
+    monkeypatch.setattr(config, "SMTP_HOST", "")
+    monkeypatch.setattr(config, "SMTP_USER", "")
+    monkeypatch.setattr(config, "SMTP_FROM", "")
+
+
 def _webhook_create(client, **overrides):
     payload = {
         "cve": "CVE-2026-10001",
@@ -136,7 +143,7 @@ class TestAssignmentEmail:
         resp = _webhook_create(client, cve="CVE-2026-60001")
         assert resp.status_code == 201
 
-    def test_no_smtp_configured_skips_gracefully(self, client, admin_token, fake_smtp):
+    def test_no_smtp_configured_skips_gracefully(self, client, admin_token, fake_smtp, smtp_config_disabled):
         resp = _webhook_create(client, cve="CVE-2026-70001")
         assert resp.status_code == 201
         assert FakeSMTP.instances == []
